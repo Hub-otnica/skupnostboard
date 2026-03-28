@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dnevnik Mentorja</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container">
+        <h1 class="brand">Skupnost Rampa</h1>
+        <nav class="nav">
+          <a href="/">Lestvica</a>
+          <a href="/forum">Forum</a>
+          <a href="/user">Mentor</a>
+          <a href="/admin">Admin</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="hero">
+        <h2>Dnevnik Mentorja</h2>
+        <p class="muted">Preglej odobrene zahtevke, ki so prispevali k rezultatu tega mentorja.</p>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h3>Profil Mentorja</h3>
+          <div id="player-summary">
+            <p class="muted">Nalaganje podatkov o mentorju ...</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Značke</h3>
+          <div id="player-badges" class="badge-grid">
+            <p class="muted">Nalaganje značk ...</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Odobreni Zahtevki</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Točke</th>
+                  <th>Razlog</th>
+                  <th>Odobreno</th>
+                </tr>
+              </thead>
+              <tbody id="approved-requests-body">
+                <tr>
+                  <td colspan="3">Nalaganje odobrenih zahtevkov ...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+    <script src="/pages/player.js"></script>
+  </body>
+</html>

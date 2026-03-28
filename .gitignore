@@ -1,0 +1,9 @@
+node_modules/
+.env
+
+# Local app data
+server/data/db.json
+
+# Local uploaded badge images
+public/uploads/badges/*
+!public/uploads/badges/.gitkeep

@@ -1,0 +1,816 @@
+const createUserForm = document.getElementById("create-user-form");
+const editUserForm = document.getElementById("edit-user-form");
+const manualPointsForm = document.getElementById("manual-points-form");
+const meetingForm = document.getElementById("meeting-form");
+const questForm = document.getElementById("quest-form");
+const eventForm = document.getElementById("event-form");
+const badgeForm = document.getElementById("badge-form");
+const editBadgeForm = document.getElementById("edit-badge-form");
+const assignBadgeForm = document.getElementById("assign-badge-form");
+const createUserMessage = document.getElementById("create-user-message");
+const editUserMessage = document.getElementById("edit-user-message");
+const manualPointsMessage = document.getElementById("manual-points-message");
+const meetingMessage = document.getElementById("meeting-message");
+const questMessage = document.getElementById("quest-message");
+const eventMessage = document.getElementById("event-message");
+const badgeMessage = document.getElementById("badge-message");
+const editBadgeMessage = document.getElementById("edit-badge-message");
+const assignBadgeMessage = document.getElementById("assign-badge-message");
+const pendingRequestsContainer = document.getElementById("pending-requests");
+const refreshButton = document.getElementById("refresh-requests");
+const meetingMembersContainer = document.getElementById("meeting-members");
+const questStepsContainer = document.getElementById("quest-steps");
+const addQuestStepButton = document.getElementById("add-quest-step");
+const eventConditionTypeSelect = document.getElementById("event-condition-type");
+const eventBadgeLabel = document.getElementById("event-badge-label");
+const eventBadgeSelect = document.getElementById("event-badge-select");
+const editUserSelect = document.getElementById("edit-user-select");
+const manualPointsUserSelect = document.getElementById("manual-points-user-select");
+const badgeSelect = document.getElementById("badge-select");
+const badgeLevelSelect = document.getElementById("badge-level-select");
+const editBadgeSelect = document.getElementById("edit-badge-select");
+const badgeUserSelect = document.getElementById("badge-user-select");
+const badgesList = document.getElementById("badges-list");
+const eventsList = document.getElementById("events-list");
+const badgeLevelDescriptionsContainer = document.getElementById("badge-level-descriptions");
+const addBadgeLevelButton = document.getElementById("add-badge-level");
+const editBadgeLevelDescriptionsContainer = document.getElementById("edit-badge-level-descriptions");
+const addEditBadgeLevelButton = document.getElementById("add-edit-badge-level");
+const tabButtons = document.querySelectorAll(".tab-button");
+const tabPanels = document.querySelectorAll(".tab-panel");
+let usersState = [];
+let badgesState = [];
+
+function switchTab(targetId) {
+  tabButtons.forEach((button) => {
+    const isActive = button.dataset.tabTarget === targetId;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+  });
+
+  tabPanels.forEach((panel) => {
+    const isActive = panel.id === targetId;
+    panel.classList.toggle("active", isActive);
+    panel.hidden = !isActive;
+  });
+}
+
+function resetEditUserForm() {
+  editUserForm.reset();
+  editUserSelect.value = "";
+}
+
+function populateEditUserForm(user) {
+  if (!user) {
+    resetEditUserForm();
+    return;
+  }
+
+  editUserSelect.value = user.code;
+  document.getElementById("edit-user-name").value = user.name || "";
+  document.getElementById("edit-user-code").value = user.code || "";
+}
+
+function createBadgeLevelField(value = "", levelNumber = 1, removeClassName = "badge-level-remove") {
+  const wrapper = document.createElement("div");
+  wrapper.className = "quest-step-row";
+  wrapper.innerHTML = `
+    <textarea name="levelDescriptions" placeholder="Opis za nivo ${levelNumber}" required>${escapeHtml(value)}</textarea>
+    <button type="button" class="danger ${removeClassName}">Odstrani</button>
+  `;
+  return wrapper;
+}
+
+function syncBadgeLevelFields(container, addButton, removeClassName) {
+  const rows = container.querySelectorAll(".quest-step-row");
+
+  rows.forEach((row, index) => {
+    const textarea = row.querySelector('textarea[name="levelDescriptions"]');
+    const removeButton = row.querySelector(`.${removeClassName}`);
+    textarea.placeholder = `Opis za nivo ${index + 1}`;
+    removeButton.disabled = rows.length === 1;
+  });
+
+  addButton.disabled = rows.length >= 10;
+}
+
+function addBadgeLevelRow(container, addButton, messageElement, value = "", removeClassName = "badge-level-remove") {
+  if (container.querySelectorAll(".quest-step-row").length >= 10) {
+    setMessage(messageElement, "Značka ima lahko največ 10 nivojev.", "error");
+    return;
+  }
+
+  const nextLevelNumber = container.querySelectorAll(".quest-step-row").length + 1;
+  container.append(createBadgeLevelField(value, nextLevelNumber, removeClassName));
+  syncBadgeLevelFields(container, addButton, removeClassName);
+}
+
+function resetBadgeForm() {
+  badgeForm.reset();
+  badgeLevelDescriptionsContainer.innerHTML = "";
+  addBadgeLevelRow(badgeLevelDescriptionsContainer, addBadgeLevelButton, badgeMessage);
+}
+
+function resetEditBadgeForm() {
+  editBadgeForm.reset();
+  editBadgeLevelDescriptionsContainer.innerHTML = "";
+  editBadgeSelect.value = "";
+  addBadgeLevelRow(editBadgeLevelDescriptionsContainer, addEditBadgeLevelButton, editBadgeMessage, "", "edit-badge-level-remove");
+}
+
+function populateEditBadgeForm(badge) {
+  if (!badge) {
+    resetEditBadgeForm();
+    return;
+  }
+
+  editBadgeSelect.value = String(badge.id);
+  document.getElementById("edit-badge-name").value = badge.name || "";
+  document.getElementById("edit-badge-requirements").value = badge.requirements || "";
+  document.getElementById("edit-badge-description").value = badge.description || "";
+  editBadgeLevelDescriptionsContainer.innerHTML = "";
+
+  (badge.levelDescriptions || [badge.description || ""])
+    .forEach((description) => {
+      addBadgeLevelRow(
+        editBadgeLevelDescriptionsContainer,
+        addEditBadgeLevelButton,
+        editBadgeMessage,
+        description,
+        "edit-badge-level-remove"
+      );
+    });
+
+  syncBadgeLevelFields(editBadgeLevelDescriptionsContainer, addEditBadgeLevelButton, "edit-badge-level-remove");
+}
+
+function syncAssignBadgeLevels() {
+  const selectedBadgeId = Number(badgeSelect.value);
+  const badge = badgesState.find((entry) => entry.id === selectedBadgeId);
+
+  if (!badge) {
+    badgeLevelSelect.innerHTML = '<option value="">Najprej izberi značko</option>';
+    return;
+  }
+
+  const levelDescriptions = Array.isArray(badge.levelDescriptions) && badge.levelDescriptions.length > 0
+    ? badge.levelDescriptions
+    : [badge.description || "Opis ni podan."];
+
+  badgeLevelSelect.innerHTML = `
+    ${levelDescriptions
+      .map((description, index) => `<option value="${index + 1}">Nivo ${index + 1}: ${escapeHtml(description)}</option>`)
+      .join("")}
+  `;
+}
+
+function syncEventBadgeField() {
+  const isBadgeCondition = eventConditionTypeSelect.value === "badge-count";
+  eventBadgeLabel.hidden = !isBadgeCondition;
+  eventBadgeSelect.required = isBadgeCondition;
+}
+
+function renderBadgeCard(badge) {
+  return `
+    <details class="badge-card badge-card-details">
+      <summary class="badge-card-summary">
+        <div class="badge-visual">
+          <img src="${badge.imagePath || badge.imageData}" alt="${escapeHtml(badge.name)}" class="badge-image" />
+        </div>
+        <p class="badge-name">${escapeHtml(badge.name)}</p>
+      </summary>
+      <div class="badge-meta">
+        <p><strong>Pogoji:</strong> ${escapeHtml(badge.requirements || "Ni določeno.")}</p>
+        <div class="quest-mini-list">
+          ${(badge.levelDescriptions || [badge.description || "Opis ni podan."])
+            .map((description, index) => `<div class="quest-mini-item"><strong>Nivo ${index + 1}:</strong> ${escapeHtml(description)}</div>`)
+            .join("")}
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+function renderBadges(badges) {
+  badgesState = badges;
+
+  if (badges.length === 0) {
+    badgesList.innerHTML = '<p class="muted">Še ni ustvarjenih značk.</p>';
+    badgeSelect.innerHTML = '<option value="">Ni značk</option>';
+    badgeLevelSelect.innerHTML = '<option value="">Ni nivojev</option>';
+    editBadgeSelect.innerHTML = '<option value="">Ni značk</option>';
+    eventBadgeSelect.innerHTML = '<option value="">Ni značk</option>';
+    return;
+  }
+
+  badgesList.innerHTML = badges
+    .map(renderBadgeCard)
+    .join("");
+
+  badgeSelect.innerHTML = `
+    <option value="">Izberi značko</option>
+    ${badges
+      .map((badge) => `<option value="${badge.id}">${escapeHtml(badge.name)}</option>`)
+      .join("")}
+  `;
+
+  editBadgeSelect.innerHTML = `
+    <option value="">Izberi značko</option>
+    ${badges
+      .map((badge) => `<option value="${badge.id}">${escapeHtml(badge.name)}</option>`)
+      .join("")}
+  `;
+
+  eventBadgeSelect.innerHTML = `
+    <option value="">Izberi značko</option>
+    ${badges
+      .map((badge) => `<option value="${badge.id}">${escapeHtml(badge.name)}</option>`)
+      .join("")}
+  `;
+
+  syncAssignBadgeLevels();
+  syncEventBadgeField();
+}
+
+function renderEvents(events) {
+  if (events.length === 0) {
+    eventsList.innerHTML = '<p class="muted">Še ni razpisanih dogodkov.</p>';
+    return;
+  }
+
+  eventsList.innerHTML = events
+    .map((event) => `
+      <article class="card">
+        <p><span class="pill">${event.status === "pending" ? "V teku" : event.status === "success" ? "Uspeh" : "Neuspeh"}</span></p>
+        <h3>${escapeHtml(event.title)}</h3>
+        <p><strong>Datum preverjanja:</strong> ${escapeHtml(event.date)}</p>
+        <p><strong>Pogoj:</strong> ${escapeHtml(event.conditionLabel)}</p>
+        <p><strong>Napredek:</strong> ${event.currentValue} / ${event.targetValue}</p>
+        <p><strong>Nagrada:</strong> +${event.rewardPoints} točk vsem mentorjem</p>
+        <p><strong>Kazen:</strong> -${event.penaltyPoints} točk vsem mentorjem</p>
+      </article>
+    `)
+    .join("");
+}
+
+async function loadEvents() {
+  try {
+    const events = await apiFetch("/api/events");
+    renderEvents(events);
+  } catch (error) {
+    eventsList.innerHTML = `<p class="message visible error">${error.message}</p>`;
+  }
+}
+
+async function loadBadges() {
+  try {
+    const previousEditBadgeId = editBadgeSelect.value;
+    const badges = await apiFetch("/api/badges");
+    renderBadges(badges);
+    const selectedBadge = badges.find((badge) => String(badge.id) === previousEditBadgeId) || badges[0];
+
+    if (selectedBadge) {
+      populateEditBadgeForm(selectedBadge);
+    } else {
+      resetEditBadgeForm();
+    }
+  } catch (error) {
+    badgesList.innerHTML = `<p class="message visible error">${error.message}</p>`;
+    badgeSelect.innerHTML = '<option value="">Napaka pri nalaganju</option>';
+    badgeLevelSelect.innerHTML = '<option value="">Napaka pri nalaganju</option>';
+    editBadgeSelect.innerHTML = '<option value="">Napaka pri nalaganju</option>';
+  }
+}
+
+function createQuestStepField(value = "") {
+  const wrapper = document.createElement("div");
+  wrapper.className = "quest-step-row";
+  wrapper.innerHTML = `
+    <input type="text" name="questStep" placeholder="Vpiši korak questa" value="${escapeHtml(value)}" required />
+    <button type="button" class="danger quest-step-remove">Odstrani</button>
+  `;
+  return wrapper;
+}
+
+function syncQuestStepButtons() {
+  const rows = questStepsContainer.querySelectorAll(".quest-step-row");
+
+  rows.forEach((row) => {
+    const removeButton = row.querySelector(".quest-step-remove");
+    removeButton.disabled = rows.length === 1;
+  });
+
+  addQuestStepButton.disabled = rows.length >= 10;
+}
+
+function addQuestStep(value = "") {
+  if (questStepsContainer.querySelectorAll(".quest-step-row").length >= 10) {
+    setMessage(questMessage, "Quest ima lahko največ 10 korakov.", "error");
+    return;
+  }
+
+  questStepsContainer.append(createQuestStepField(value));
+  syncQuestStepButtons();
+}
+
+function resetQuestForm() {
+  questForm.reset();
+  questStepsContainer.innerHTML = "";
+  addQuestStep();
+  addQuestStep();
+}
+
+function renderMeetingMembers(users) {
+  usersState = users;
+
+  if (users.length === 0) {
+    meetingMembersContainer.innerHTML = '<p class="muted">Pred beleženjem sestanka najprej ustvari mentorje.</p>';
+    editUserSelect.innerHTML = '<option value="">Ni mentorjev</option>';
+    manualPointsUserSelect.innerHTML = '<option value="">Ni mentorjev</option>';
+    badgeUserSelect.innerHTML = '<option value="">Ni mentorjev</option>';
+    return;
+  }
+
+  meetingMembersContainer.innerHTML = users
+    .map((user) => `
+      <label class="member-option">
+        <input type="checkbox" name="presentCodes" value="${escapeHtml(user.code)}" />
+        <span>${escapeHtml(user.name)}</span>
+      </label>
+    `)
+    .join("");
+
+  editUserSelect.innerHTML = `
+    <option value="">Izberi mentorja</option>
+    ${users
+      .map((user) => `<option value="${escapeHtml(user.code)}">${escapeHtml(user.name)}</option>`)
+      .join("")}
+  `;
+
+  manualPointsUserSelect.innerHTML = `
+    <option value="">Izberi mentorja</option>
+    ${users
+      .map((user) => `<option value="${escapeHtml(user.name)}">${escapeHtml(user.name)}</option>`)
+      .join("")}
+  `;
+
+  badgeUserSelect.innerHTML = `
+    <option value="">Izberi mentorja</option>
+    ${users
+      .map((user) => `<option value="${escapeHtml(user.name)}">${escapeHtml(user.name)}</option>`)
+      .join("")}
+  `;
+}
+
+async function loadMeetingMembers() {
+  try {
+    const previousUserCode = editUserSelect.value;
+    const users = await apiFetch("/api/users");
+    renderMeetingMembers(users);
+    const selectedUser = users.find((user) => user.code === previousUserCode) || users[0];
+
+    if (selectedUser) {
+      populateEditUserForm(selectedUser);
+    } else {
+      resetEditUserForm();
+    }
+  } catch (error) {
+    meetingMembersContainer.innerHTML = `<p class="message visible error">${error.message}</p>`;
+  }
+}
+
+function renderPendingRequest(request) {
+  const questStepsMarkup = request.type === "quest" && Array.isArray(request.questSteps)
+    ? `
+        <div class="quest-mini-list">
+          ${request.questSteps.map((step) => `<div class="quest-mini-item">✓ ${escapeHtml(step)}</div>`).join("")}
+        </div>
+      `
+    : "";
+  const participantMarkup = request.type === "quest" && Array.isArray(request.participantNames)
+    ? `
+        <p><strong>Ekipa:</strong> ${request.participantNames.map((name) => escapeHtml(name)).join(", ")}</p>
+        <p><strong>Število igralcev:</strong> ${request.participantNames.length}${request.requiredPlayers ? ` / ${request.requiredPlayers}` : ""}</p>
+      `
+    : "";
+
+  return `
+    <article class="card">
+      <p><span class="pill">${request.type === "quest" ? "Quest" : "V čakanju"}</span></p>
+      <h3>${escapeHtml(request.userName)}</h3>
+      <p><strong>Točke:</strong> ${request.points}</p>
+      <p><strong>Razlog:</strong> ${escapeHtml(request.reason || "Razlog ni podan.")}</p>
+      ${request.type === "quest" ? `<p><strong>Quest:</strong> ${escapeHtml(request.questTitle || request.reason || "")}</p>` : ""}
+      ${participantMarkup}
+      ${questStepsMarkup}
+      <p class="muted">Poslano: ${new Date(request.createdAt).toLocaleString()}</p>
+      <div class="inline-actions">
+        <button type="button" data-action="approve" data-id="${request.id}">Odobri</button>
+        <button type="button" class="danger" data-action="reject" data-id="${request.id}">Zavrni</button>
+      </div>
+    </article>
+  `;
+}
+
+async function loadPendingRequests() {
+  try {
+    const requests = await apiFetch("/api/requests/pending");
+
+    if (requests.length === 0) {
+      pendingRequestsContainer.innerHTML = '<p class="muted">Trenutno ni čakajočih zahtevkov.</p>';
+      return;
+    }
+
+    pendingRequestsContainer.innerHTML = requests.map(renderPendingRequest).join("");
+  } catch (error) {
+    pendingRequestsContainer.innerHTML = `<p class="message visible error">${error.message}</p>`;
+  }
+}
+
+createUserForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearMessage(createUserMessage);
+
+  const formData = new FormData(createUserForm);
+  const payload = {
+    name: String(formData.get("name") || "").trim(),
+    code: String(formData.get("code") || "").trim()
+  };
+
+  try {
+    const user = await apiFetch("/api/users", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+
+    createUserForm.reset();
+    setMessage(createUserMessage, `Ustvarjen je bil mentor ${user.name}.`, "success");
+    await loadMeetingMembers();
+  } catch (error) {
+    setMessage(createUserMessage, error.message, "error");
+  }
+});
+
+editUserForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearMessage(editUserMessage);
+
+  const formData = new FormData(editUserForm);
+  const currentCode = String(formData.get("currentCode") || "").trim();
+  const name = String(formData.get("name") || "").trim();
+  const code = String(formData.get("code") || "").trim();
+
+  try {
+    const user = await apiFetch(`/api/users/${encodeURIComponent(currentCode)}`, {
+      method: "PUT",
+      body: JSON.stringify({ name, code })
+    });
+
+    setMessage(editUserMessage, `Podatki mentorja ${user.name} so bili posodobljeni.`, "success");
+    await loadMeetingMembers();
+    populateEditUserForm(user);
+  } catch (error) {
+    setMessage(editUserMessage, error.message, "error");
+  }
+});
+
+manualPointsForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearMessage(manualPointsMessage);
+
+  const formData = new FormData(manualPointsForm);
+  const name = String(formData.get("name") || "").trim();
+  const points = Number(formData.get("points"));
+  const reason = String(formData.get("reason") || "").trim();
+
+  try {
+    const user = await apiFetch("/api/users/by-name/points", {
+      method: "POST",
+      body: JSON.stringify({ name, points, reason })
+    });
+
+    manualPointsForm.reset();
+    setMessage(manualPointsMessage, `${user.name} ima zdaj ${user.points} točk.`, "success");
+  } catch (error) {
+    setMessage(manualPointsMessage, error.message, "error");
+  }
+});
+
+meetingForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearMessage(meetingMessage);
+
+  const formData = new FormData(meetingForm);
+  const presentCodes = formData.getAll("presentCodes");
+  const note = String(formData.get("note") || "").trim();
+
+  try {
+    const result = await apiFetch("/api/meetings", {
+      method: "POST",
+      body: JSON.stringify({ presentCodes, note })
+    });
+
+    meetingForm.reset();
+    setMessage(
+      meetingMessage,
+      `Prisotnost na sestanku je bila zabeležena za ${result.attendees.length} članov.`,
+      "success"
+    );
+    await loadMeetingMembers();
+  } catch (error) {
+    setMessage(meetingMessage, error.message, "error");
+  }
+});
+
+questForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearMessage(questMessage);
+
+  const formData = new FormData(questForm);
+  const title = String(formData.get("title") || "").trim();
+  const rewardPoints = Number(formData.get("rewardPoints"));
+  const requiredPlayers = Number(formData.get("requiredPlayers"));
+  const steps = formData.getAll("questStep").map((step) => String(step || "").trim()).filter(Boolean);
+
+  try {
+    const quest = await apiFetch("/api/quests", {
+      method: "POST",
+      body: JSON.stringify({ title, rewardPoints, requiredPlayers, steps })
+    });
+
+    resetQuestForm();
+    setMessage(questMessage, `Quest "${quest.title}" za ${quest.requiredPlayers} igralcev je bil objavljen.`, "success");
+  } catch (error) {
+    setMessage(questMessage, error.message, "error");
+  }
+});
+
+eventForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearMessage(eventMessage);
+
+  const formData = new FormData(eventForm);
+  const title = String(formData.get("title") || "").trim();
+  const date = String(formData.get("date") || "").trim();
+  const conditionType = String(formData.get("conditionType") || "").trim();
+  const badgeId = Number(formData.get("badgeId"));
+  const targetValue = Number(formData.get("targetValue"));
+  const rewardPoints = Number(formData.get("rewardPoints"));
+  const penaltyPoints = Number(formData.get("penaltyPoints"));
+
+  try {
+    const createdEvent = await apiFetch("/api/events", {
+      method: "POST",
+      body: JSON.stringify({
+        title,
+        date,
+        conditionType,
+        badgeId,
+        targetValue,
+        rewardPoints,
+        penaltyPoints
+      })
+    });
+
+    eventForm.reset();
+    syncEventBadgeField();
+    setMessage(eventMessage, `Dogodek "${createdEvent.title}" je bil objavljen.`, "success");
+    await loadEvents();
+  } catch (error) {
+    setMessage(eventMessage, error.message, "error");
+  }
+});
+
+badgeForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearMessage(badgeMessage);
+
+  const formData = new FormData(badgeForm);
+  const file = formData.get("image");
+  const name = String(formData.get("name") || "").trim();
+  const requirements = String(formData.get("requirements") || "").trim();
+  const description = String(formData.get("description") || "").trim();
+  const levelDescriptions = formData.getAll("levelDescriptions").map((entry) => String(entry || "").trim()).filter(Boolean);
+
+  try {
+    if (!(file instanceof File) || !file.size) {
+      throw new Error("Izberi sliko značke.");
+    }
+
+    const uploadData = new FormData();
+    uploadData.append("image", file);
+    uploadData.append("name", name);
+    uploadData.append("requirements", requirements);
+    uploadData.append("description", description);
+    levelDescriptions.forEach((entry) => {
+      uploadData.append("levelDescriptions", entry);
+    });
+
+    const response = await fetch("/api/badges", {
+      method: "POST",
+      body: uploadData
+    });
+    const badge = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(badge.error || "Prišlo je do napake.");
+    }
+
+    resetBadgeForm();
+    setMessage(badgeMessage, `Značka "${badge.name}" je bila ustvarjena.`, "success");
+    await loadBadges();
+  } catch (error) {
+    setMessage(badgeMessage, error.message, "error");
+  }
+});
+
+editBadgeForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearMessage(editBadgeMessage);
+
+  const formData = new FormData(editBadgeForm);
+  const badgeId = Number(formData.get("badgeId"));
+  const file = formData.get("image");
+  const name = String(formData.get("name") || "").trim();
+  const requirements = String(formData.get("requirements") || "").trim();
+  const description = String(formData.get("description") || "").trim();
+  const levelDescriptions = formData.getAll("levelDescriptions").map((entry) => String(entry || "").trim()).filter(Boolean);
+
+  try {
+    if (!badgeId) {
+      throw new Error("Izberi značko za urejanje.");
+    }
+
+    const uploadData = new FormData();
+    uploadData.append("name", name);
+    uploadData.append("requirements", requirements);
+    uploadData.append("description", description);
+
+    if (file instanceof File && file.size) {
+      uploadData.append("image", file);
+    }
+
+    levelDescriptions.forEach((entry) => {
+      uploadData.append("levelDescriptions", entry);
+    });
+
+    const response = await fetch(`/api/badges/${badgeId}`, {
+      method: "PUT",
+      body: uploadData
+    });
+    const badge = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(badge.error || "Prišlo je do napake.");
+    }
+
+    setMessage(editBadgeMessage, `Značka "${badge.name}" je bila posodobljena.`, "success");
+    await loadBadges();
+    populateEditBadgeForm(badge);
+  } catch (error) {
+    setMessage(editBadgeMessage, error.message, "error");
+  }
+});
+
+assignBadgeForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearMessage(assignBadgeMessage);
+
+  const formData = new FormData(assignBadgeForm);
+  const name = String(formData.get("name") || "").trim();
+  const badgeId = Number(formData.get("badgeId"));
+  const level = Number(formData.get("level"));
+
+  try {
+    const user = await apiFetch("/api/badges/assign", {
+      method: "POST",
+      body: JSON.stringify({ name, badgeId, level })
+    });
+
+    assignBadgeForm.reset();
+    syncAssignBadgeLevels();
+    setMessage(assignBadgeMessage, `Značka nivoja ${level} je bila dodeljena mentorju ${user.name}.`, "success");
+    await loadBadges();
+  } catch (error) {
+    setMessage(assignBadgeMessage, error.message, "error");
+  }
+});
+
+questStepsContainer.addEventListener("click", (event) => {
+  const button = event.target.closest(".quest-step-remove");
+
+  if (!button) {
+    return;
+  }
+
+  if (questStepsContainer.querySelectorAll(".quest-step-row").length === 1) {
+    return;
+  }
+
+  button.closest(".quest-step-row").remove();
+  syncQuestStepButtons();
+});
+
+badgeLevelDescriptionsContainer.addEventListener("click", (event) => {
+  const button = event.target.closest(".badge-level-remove");
+
+  if (!button) {
+    return;
+  }
+
+  if (badgeLevelDescriptionsContainer.querySelectorAll(".quest-step-row").length === 1) {
+    return;
+  }
+
+  button.closest(".quest-step-row").remove();
+  syncBadgeLevelFields(badgeLevelDescriptionsContainer, addBadgeLevelButton, "badge-level-remove");
+});
+
+editBadgeLevelDescriptionsContainer.addEventListener("click", (event) => {
+  const button = event.target.closest(".edit-badge-level-remove");
+
+  if (!button) {
+    return;
+  }
+
+  if (editBadgeLevelDescriptionsContainer.querySelectorAll(".quest-step-row").length === 1) {
+    return;
+  }
+
+  button.closest(".quest-step-row").remove();
+  syncBadgeLevelFields(editBadgeLevelDescriptionsContainer, addEditBadgeLevelButton, "edit-badge-level-remove");
+});
+
+addQuestStepButton.addEventListener("click", () => {
+  clearMessage(questMessage);
+  addQuestStep();
+});
+
+addBadgeLevelButton.addEventListener("click", () => {
+  clearMessage(badgeMessage);
+  addBadgeLevelRow(badgeLevelDescriptionsContainer, addBadgeLevelButton, badgeMessage);
+});
+
+addEditBadgeLevelButton.addEventListener("click", () => {
+  clearMessage(editBadgeMessage);
+  addBadgeLevelRow(editBadgeLevelDescriptionsContainer, addEditBadgeLevelButton, editBadgeMessage, "", "edit-badge-level-remove");
+});
+
+badgeSelect.addEventListener("change", () => {
+  clearMessage(assignBadgeMessage);
+  syncAssignBadgeLevels();
+});
+
+eventConditionTypeSelect.addEventListener("change", () => {
+  clearMessage(eventMessage);
+  syncEventBadgeField();
+});
+
+editBadgeSelect.addEventListener("change", () => {
+  clearMessage(editBadgeMessage);
+  const badge = badgesState.find((entry) => entry.id === Number(editBadgeSelect.value));
+  populateEditBadgeForm(badge);
+});
+
+editUserSelect.addEventListener("change", () => {
+  clearMessage(editUserMessage);
+  const user = usersState.find((entry) => entry.code === editUserSelect.value);
+  populateEditUserForm(user);
+});
+
+pendingRequestsContainer.addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-action]");
+
+  if (!button) {
+    return;
+  }
+
+  const requestId = button.dataset.id;
+  const action = button.dataset.action;
+
+  try {
+    await apiFetch(`/api/requests/${requestId}/${action}`, {
+      method: "POST"
+    });
+    await loadPendingRequests();
+  } catch (error) {
+    alert(error.message);
+  }
+});
+
+refreshButton.addEventListener("click", loadPendingRequests);
+
+tabButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    switchTab(button.dataset.tabTarget);
+  });
+});
+
+resetQuestForm();
+resetBadgeForm();
+resetEditBadgeForm();
+resetEditUserForm();
+loadPendingRequests();
+loadMeetingMembers();
+loadBadges();
+loadEvents();

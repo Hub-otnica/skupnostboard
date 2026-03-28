@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Administratorska Nadzorna Plošča</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container">
+        <h1 class="brand">Skupnost Rampa</h1>
+        <nav class="nav">
+          <a href="/">Lestvica</a>
+          <a href="/forum">Forum</a>
+          <a href="/user">Mentor</a>
+          <a href="/admin">Admin</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="hero">
+        <h2>Nadzorna Soba</h2>
+        <p class="muted">Upravljaj mentorje, pregleduj zahtevke in urejaj aktivnosti skupnosti.</p>
+      </section>
+
+      <section class="card">
+        <div class="tab-bar" role="tablist" aria-label="Admin funkcije">
+          <button class="tab-button active" id="tab-button-mentors" type="button" data-tab-target="mentors-panel" aria-selected="true">Mentorji</button>
+          <button class="tab-button" id="tab-button-quests" type="button" data-tab-target="quests-panel" aria-selected="false">Questi</button>
+          <button class="tab-button" id="tab-button-badges" type="button" data-tab-target="badges-panel" aria-selected="false">Značke</button>
+          <button class="tab-button" id="tab-button-meetings" type="button" data-tab-target="meetings-panel" aria-selected="false">Sestanki</button>
+        </div>
+
+        <div class="tab-panel active" id="mentors-panel" role="tabpanel" aria-labelledby="tab-button-mentors">
+          <div class="grid">
+            <div class="card">
+              <h3>Ustvari Mentorja</h3>
+              <form id="create-user-form">
+                <label>
+                  Ime
+                  <input name="name" type="text" placeholder="Unikatno ime mentorja" required />
+                </label>
+                <label>
+                  Unikatna koda
+                  <input name="code" type="text" placeholder="Primer: JAMIE01" required />
+                </label>
+                <button type="submit">Ustvari mentorja</button>
+              </form>
+              <p class="muted">Ime mentorja in koda morata biti unikatna.</p>
+              <div id="create-user-message" class="message"></div>
+            </div>
+
+            <div class="card">
+              <h3>Uredi Mentorja</h3>
+              <form id="edit-user-form">
+                <label>
+                  Izberi mentorja
+                  <select name="currentCode" id="edit-user-select" required>
+                    <option value="">Nalaganje mentorjev ...</option>
+                  </select>
+                </label>
+                <label>
+                  Ime mentorja
+                  <input name="name" id="edit-user-name" type="text" placeholder="Novo ime mentorja" required />
+                </label>
+                <label>
+                  Koda mentorja
+                  <input name="code" id="edit-user-code" type="text" placeholder="Nova koda mentorja" required />
+                </label>
+                <button type="submit">Shrani mentorja</button>
+              </form>
+              <div id="edit-user-message" class="message"></div>
+            </div>
+
+            <div class="card">
+              <h3>Ročni Vnos Točk</h3>
+              <form id="manual-points-form">
+                <label>
+                  Mentor
+                  <select name="name" id="manual-points-user-select" required>
+                    <option value="">Nalaganje mentorjev ...</option>
+                  </select>
+                </label>
+                <label>
+                  Točke za dodati
+                  <input name="points" type="number" min="1" step="1" required />
+                </label>
+                <label>
+                  Razlog (neobvezno)
+                  <textarea name="reason" placeholder="Zakaj se te točke dodelijo?"></textarea>
+                </label>
+                <button type="submit">Dodaj točke</button>
+              </form>
+              <p class="muted">Mentorja izberi s seznama in nato vpiši število točk.</p>
+              <div id="manual-points-message" class="message"></div>
+            </div>
+          </div>
+
+          <section class="card" style="margin-top: 1rem;">
+            <div class="inline-actions" style="justify-content: space-between; align-items: center;">
+              <h3 style="margin: 0;">Čakajoči Zahtevki</h3>
+              <button id="refresh-requests" class="secondary" type="button">Osveži</button>
+            </div>
+            <div id="pending-requests" class="grid" style="margin-top: 1rem;"></div>
+          </section>
+        </div>
+
+        <div class="tab-panel" id="quests-panel" role="tabpanel" aria-labelledby="tab-button-quests" hidden>
+          <div class="grid">
+            <div class="card">
+              <h3>Ustvari Quest</h3>
+              <form id="quest-form">
+                <label>
+                  Naziv Questa
+                  <input name="title" type="text" placeholder="Npr. Tedenski izziv" required />
+                </label>
+                <label>
+                  Nagrada v točkah
+                  <input name="rewardPoints" type="number" min="1" step="1" required />
+                </label>
+                <label>
+                  Število igralcev
+                  <input name="requiredPlayers" type="number" min="1" step="1" required />
+                </label>
+                <div>
+                  <div class="inline-actions" style="justify-content: space-between; align-items: center;">
+                    <p class="muted" style="margin: 0;">Dodaj med 1 in 10 korakov, ki jih mora mentor odkljukati.</p>
+                    <button id="add-quest-step" class="secondary" type="button">Dodaj korak</button>
+                  </div>
+                  <div id="quest-steps" class="quest-step-list"></div>
+                </div>
+                <button type="submit">Objavi quest</button>
+              </form>
+              <div id="quest-message" class="message"></div>
+            </div>
+
+            <div class="card">
+              <h3>Ustvari Dogodek</h3>
+              <form id="event-form">
+                <label>
+                  Ime dogodka
+                  <input name="title" type="text" placeholder="Npr. Pomladni izziv skupnosti" required />
+                </label>
+                <label>
+                  Datum preverjanja
+                  <input name="date" type="date" required />
+                </label>
+                <label>
+                  Vrsta pogoja
+                  <select name="conditionType" id="event-condition-type" required>
+                    <option value="points-total">Skupne točke mentorjev</option>
+                    <option value="attendance-total">Skupni sestanki mentorjev</option>
+                    <option value="badge-count">Število mentorjev z značko</option>
+                  </select>
+                </label>
+                <label id="event-badge-label" hidden>
+                  Značka za pogoj
+                  <select name="badgeId" id="event-badge-select">
+                    <option value="">Najprej naloži značke</option>
+                  </select>
+                </label>
+                <label>
+                  Ciljna vrednost
+                  <input name="targetValue" type="number" min="1" step="1" required />
+                </label>
+                <label>
+                  Nagrada za uspeh
+                  <input name="rewardPoints" type="number" min="0" step="1" required />
+                </label>
+                <label>
+                  Kazen za neuspeh
+                  <input name="penaltyPoints" type="number" min="0" step="1" required />
+                </label>
+                <button type="submit">Objavi dogodek</button>
+              </form>
+              <div id="event-message" class="message"></div>
+            </div>
+          </div>
+
+          <section class="card" style="margin-top: 1rem;">
+            <h3>Razpisani Dogodki</h3>
+            <div id="events-list" class="quest-list" style="margin-top: 1rem;">
+              <p class="muted">Nalaganje dogodkov ...</p>
+            </div>
+          </section>
+        </div>
+
+        <div class="tab-panel" id="badges-panel" role="tabpanel" aria-labelledby="tab-button-badges" hidden>
+          <div class="grid">
+            <div class="card">
+              <h3>Ustvari Značko</h3>
+              <form id="badge-form">
+                <label>
+                  Ime značke
+                  <input name="name" type="text" placeholder="Npr. Mojster komunikacije" required />
+                </label>
+                <label>
+                  Slika značke
+                  <input name="image" type="file" accept="image/*" required />
+                </label>
+                <label>
+                  Pogoji za pridobitev
+                  <textarea name="requirements" placeholder="Napiši pogoje za pridobitev značke" required></textarea>
+                </label>
+                <label>
+                  Opis značke
+                  <textarea name="description" placeholder="Napiši opis značke" required></textarea>
+                </label>
+                <div>
+                  <div class="inline-actions" style="justify-content: space-between; align-items: center;">
+                    <p class="muted" style="margin: 0;">Za vsak nivo dodaj ločen opis. Prvi opis je nivo 1.</p>
+                    <button id="add-badge-level" class="secondary" type="button">Dodaj nivo</button>
+                  </div>
+                  <div id="badge-level-descriptions" class="quest-step-list"></div>
+                </div>
+                <button type="submit">Ustvari značko</button>
+              </form>
+              <div id="badge-message" class="message"></div>
+            </div>
+
+            <div class="card">
+              <h3>Dodeli Značko</h3>
+              <form id="assign-badge-form">
+                <label>
+                  Mentor
+                  <select name="name" id="badge-user-select" required>
+                    <option value="">Nalaganje mentorjev ...</option>
+                  </select>
+                </label>
+                <label>
+                  Izberi značko
+                  <select name="badgeId" id="badge-select" required>
+                    <option value="">Nalaganje značk ...</option>
+                  </select>
+                </label>
+                <label>
+                  Nivo značke
+                  <select name="level" id="badge-level-select" required>
+                    <option value="">Najprej izberi značko</option>
+                  </select>
+                </label>
+                <button type="submit">Dodeli značko</button>
+              </form>
+              <div id="assign-badge-message" class="message"></div>
+            </div>
+
+            <div class="card">
+              <h3>Uredi Značko</h3>
+              <form id="edit-badge-form">
+                <label>
+                  Izberi značko
+                  <select name="badgeId" id="edit-badge-select" required>
+                    <option value="">Najprej naloži značke</option>
+                  </select>
+                </label>
+                <label>
+                  Ime značke
+                  <input name="name" id="edit-badge-name" type="text" placeholder="Ime značke" required />
+                </label>
+                <label>
+                  Nova slika značke (neobvezno)
+                  <input name="image" type="file" accept="image/*" />
+                </label>
+                <label>
+                  Pogoji za pridobitev
+                  <textarea name="requirements" id="edit-badge-requirements" placeholder="Pogoji za pridobitev" required></textarea>
+                </label>
+                <label>
+                  Opis značke
+                  <textarea name="description" id="edit-badge-description" placeholder="Opis značke" required></textarea>
+                </label>
+                <div>
+                  <div class="inline-actions" style="justify-content: space-between; align-items: center;">
+                    <p class="muted" style="margin: 0;">Posodobi opise nivojev. Prvi opis je nivo 1.</p>
+                    <button id="add-edit-badge-level" class="secondary" type="button">Dodaj nivo</button>
+                  </div>
+                  <div id="edit-badge-level-descriptions" class="quest-step-list"></div>
+                </div>
+                <button type="submit">Shrani spremembe</button>
+              </form>
+              <div id="edit-badge-message" class="message"></div>
+            </div>
+          </div>
+
+          <section class="card" style="margin-top: 1rem;">
+            <h3>Obstoječe Značke</h3>
+            <div id="badges-list" class="badge-grid" style="margin-top: 1rem;"></div>
+          </section>
+        </div>
+
+        <div class="tab-panel" id="meetings-panel" role="tabpanel" aria-labelledby="tab-button-meetings" hidden>
+          <div class="grid">
+            <div class="card">
+              <h3>Zabeleži Sestanek</h3>
+              <form id="meeting-form">
+                <div>
+                  <p class="muted">Izberi mentorje, ki so bili prisotni na tem sestanku.</p>
+                  <div id="meeting-members" class="member-list">
+                    <p class="muted">Nalaganje mentorjev ...</p>
+                  </div>
+                </div>
+                <label>
+                  Opomba (neobvezno)
+                  <textarea name="note" placeholder="Dodaj kratko opombo o sestanku"></textarea>
+                </label>
+                <button type="submit">Zabeleži sestanek</button>
+              </form>
+              <div id="meeting-message" class="message"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+    <script src="/pages/admin.js"></script>
+  </body>
+</html>

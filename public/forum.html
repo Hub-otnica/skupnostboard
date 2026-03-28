@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="sl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Forum</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container">
+        <h1 class="brand">Skupnost Rampa</h1>
+        <nav class="nav">
+          <a href="/">Lestvica</a>
+          <a href="/forum">Forum</a>
+          <a href="/user">Mentor</a>
+          <a href="/admin">Admin</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="hero">
+        <h2>Forum</h2>
+        <p class="muted">Preberi objave drugih mentorjev ali se vpiši s svojo kodo in napiši novo sporočilo.</p>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h3>Vpis Za Pisanje</h3>
+          <form id="forum-login-form">
+            <label>
+              Koda mentorja
+              <input id="forum-code" name="code" type="text" placeholder="Vnesi kodo" required />
+            </label>
+            <button type="submit">Vpis</button>
+          </form>
+          <div id="forum-login-message" class="message"></div>
+          <div id="forum-user-summary" class="card" hidden>
+            <h3 id="forum-user-name">Mentor</h3>
+            <p>Vpisan za objavo sporočil.</p>
+          </div>
+        </div>
+
+        <div class="card" id="forum-compose" hidden>
+          <h3>Novo Sporočilo</h3>
+          <form id="forum-message-form">
+            <label>
+              Sporočilo
+              <textarea id="forum-content" name="content" placeholder="Napiši svoje sporočilo" required></textarea>
+            </label>
+            <button type="submit">Objavi</button>
+          </form>
+          <div id="forum-message-status" class="message"></div>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top: 1rem;">
+        <h3>Objave</h3>
+        <div id="forum-messages" class="forum-list" style="margin-top: 1rem;">
+          <p class="muted">Nalaganje objav ...</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+    <script src="/pages/forum.js"></script>
+  </body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "name": "skorbord",
+  "version": "1.0.0",
+  "description": "Simple scoreboard app with code-based users and admin-managed point requests.",
+  "main": "server/app.js",
+  "scripts": {
+    "start": "node server/app.js",
+    "dev": "node --watch server/app.js"
+  },
+  "keywords": [
+    "express",
+    "scoreboard",
+    "vanilla-js"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.2"
+  }
+}

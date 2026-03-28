@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Skupnost Rampa</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container">
+        <h1 class="brand">Skupnost Rampa</h1>
+        <nav class="nav">
+          <a href="/">Lestvica</a>
+          <a href="/forum">Forum</a>
+          <a href="/user">Mentor</a>
+          <a href="/admin">Admin</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="hero">
+        <h2>Lestvica</h2>
+      </section>
+
+      <section class="card">
+        <form class="sort-form" aria-label="Razvrščanje lestvice">
+          <label for="sort-mode">Razvrsti po</label>
+          <select id="sort-mode" name="sort-mode">
+            <option value="points">Točkah</option>
+            <option value="attendance">Sestankih</option>
+            <option value="badges">Značkah</option>
+          </select>
+        </form>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Ime</th>
+                <th>Točke</th>
+                <th>Sestanki</th>
+                <th>Značke</th>
+              </tr>
+            </thead>
+            <tbody id="scoreboard-body">
+              <tr>
+                <td colspan="5">Nalaganje lestvice ...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top: 1rem;">
+        <h3>Dogodki</h3>
+        <div id="events-list" class="quest-list" style="margin-top: 1rem;">
+          <p class="muted">Nalaganje dogodkov ...</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+    <script src="/pages/index.js"></script>
+  </body>
+</html>

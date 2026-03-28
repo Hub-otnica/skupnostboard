@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mentor</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container">
+        <h1 class="brand">Skupnost Rampa</h1>
+        <nav class="nav">
+          <a href="/">Lestvica</a>
+          <a href="/forum">Forum</a>
+          <a href="/user">Mentor</a>
+          <a href="/admin">Admin</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="hero">
+        <h2>Mentorjeva Konzola</h2>
+        <p class="muted">Vnesi svojo kodo za ogled rezultata, oddajo zahtevkov in prijavo na aktivne queste.</p>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h3>Poišči Mentorja</h3>
+          <form id="lookup-form">
+            <label>
+              Koda mentorja
+              <input id="lookup-code" name="code" type="text" placeholder="Vnesi kodo" required />
+            </label>
+            <button type="submit">Vpis</button>
+          </form>
+          <div id="lookup-message" class="message"></div>
+          <div id="user-summary" class="card" hidden>
+            <h3 id="user-name">Mentor</h3>
+            <p>Trenutne točke: <strong id="user-points">0</strong></p>
+            <p>Sestanki: <strong id="user-attendance">0</strong></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="user-actions" hidden>
+        <div class="tab-bar" role="tablist" aria-label="Uporabniške funkcije">
+          <button class="tab-button active" id="tab-button-requests" type="button" data-tab-target="requests-panel" aria-selected="true">Točkovni zahtevki</button>
+          <button class="tab-button" id="tab-button-quests" type="button" data-tab-target="quests-panel" aria-selected="false">Questi</button>
+          <button class="tab-button" id="tab-button-badges" type="button" data-tab-target="badges-panel" aria-selected="false">Značke</button>
+        </div>
+
+        <div class="tab-panel active" id="requests-panel" role="tabpanel" aria-labelledby="tab-button-requests">
+          <h3>Zahtevaj Točke</h3>
+          <form id="request-form">
+            <label>
+              Koda mentorja
+              <input id="request-code" name="code" type="text" placeholder="Ista koda" required />
+            </label>
+            <label>
+              Zahtevane točke
+              <input id="request-points" name="points" type="number" min="1" step="1" required />
+            </label>
+            <label>
+              Razlog (neobvezno)
+              <textarea id="request-reason" name="reason" placeholder="Dodaj kratko pojasnilo"></textarea>
+            </label>
+            <button type="submit">Pošlji zahtevek</button>
+          </form>
+          <div id="request-message" class="message"></div>
+        </div>
+
+        <div class="tab-panel" id="quests-panel" role="tabpanel" aria-labelledby="tab-button-quests" hidden>
+          <div class="grid">
+            <div class="card">
+              <h3>Aktivni Questi</h3>
+              <p class="muted">Klikni quest, da ga odpreš in oddaš po zaključku vseh korakov.</p>
+              <div id="quests-list" class="quest-list">
+                <p class="muted">Nalaganje questov ...</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3>Izbran Quest</h3>
+              <div id="selected-quest">
+                <p class="muted">Izberi quest iz seznama na levi.</p>
+              </div>
+              <div id="quest-message" class="message"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="badges-panel" role="tabpanel" aria-labelledby="tab-button-badges" hidden>
+          <div class="grid">
+            <div class="card">
+              <h3>Moje Značke</h3>
+              <div id="user-badges" class="badge-grid">
+                <p class="muted">Nalaganje značk ...</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3>Pridobi Značko</h3>
+              <form id="badge-share-form">
+                <label>
+                  Izberi značko
+                  <select id="badge-share-select" name="badgeId" required>
+                    <option value="">Najprej se vpiši</option>
+                  </select>
+                </label>
+                <div id="badge-requirements" class="card">
+                  <p class="muted">Izberi značko, da vidiš pogoje za pridobitev.</p>
+                </div>
+                <div id="badge-holders" class="quest-mini-list">
+                  <p class="muted">Izberi značko, da vidiš kdo jo ima.</p>
+                </div>
+                <label>
+                  Izberi mentorja
+                  <select id="badge-holder-select" name="targetCode" required>
+                    <option value="">Izberi mentorja</option>
+                  </select>
+                </label>
+                <button type="submit">Pošlji prošnjo za deljenje značke</button>
+              </form>
+              <div id="badge-share-message" class="message"></div>
+            </div>
+
+            <div class="card">
+              <h3>Prejete Prošnje</h3>
+              <div id="incoming-badge-requests" class="quest-list">
+                <p class="muted">Ni prejetih prošenj.</p>
+              </div>
+              <div id="incoming-badge-message" class="message"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+    <script src="/pages/user.js"></script>
+  </body>
+</html>
