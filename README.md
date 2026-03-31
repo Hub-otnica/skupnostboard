@@ -47,9 +47,7 @@ skorbord/
 
 1. Open a terminal in the project folder:
 
-   ```bash
-   cd /home/dinozaver/skorbord
-   ```
+
 
 2. Install dependencies:
 
