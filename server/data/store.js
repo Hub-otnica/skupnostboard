@@ -26,6 +26,7 @@ const defaultData = {
   quests: [],
   events: [],
   badges: [],
+  badgeTransfers: [],
   forumMessages: []
 };
 
@@ -66,6 +67,10 @@ function readData() {
 
   if (!Array.isArray(data.badges)) {
     data.badges = [];
+  }
+
+  if (!Array.isArray(data.badgeTransfers)) {
+    data.badgeTransfers = [];
   }
 
   if (!Array.isArray(data.forumMessages)) {
@@ -130,6 +135,30 @@ function readData() {
       levelDescriptions: levelDescriptions.length > 0 ? levelDescriptions : [description || "Opis ni podan."]
     };
   });
+
+  data.badgeTransfers = data.badgeTransfers.map((transfer) => ({
+    ...transfer,
+    badgeId: Number(transfer.badgeId),
+    badgeName: String(transfer.badgeName || "").trim(),
+    fromUserCode: String(transfer.fromUserCode || "").trim().toUpperCase(),
+    fromUserName: String(transfer.fromUserName || "").trim(),
+    toUserCode: String(transfer.toUserCode || "").trim().toUpperCase(),
+    toUserName: String(transfer.toUserName || "").trim(),
+    level: Number.isInteger(transfer.level) && transfer.level > 0 ? transfer.level : 1,
+    sourceType: String(transfer.sourceType || "unknown").trim(),
+    requestId: Number.isInteger(transfer.requestId) ? transfer.requestId : null,
+    rootUserCode: String(transfer.rootUserCode || transfer.toUserCode || "").trim().toUpperCase(),
+    rootUserName: String(transfer.rootUserName || transfer.toUserName || "").trim(),
+    lineageCodes: Array.isArray(transfer.lineageCodes)
+      ? transfer.lineageCodes.map((code) => String(code || "").trim().toUpperCase()).filter(Boolean)
+      : [],
+    lineageNames: Array.isArray(transfer.lineageNames)
+      ? transfer.lineageNames.map((name) => String(name || "").trim())
+      : [],
+    depth: Number.isInteger(transfer.depth) && transfer.depth >= 0 ? transfer.depth : 0,
+    createdAt: String(transfer.createdAt || "").trim(),
+    updatedAt: String(transfer.updatedAt || transfer.createdAt || "").trim()
+  })).filter((transfer) => Number.isInteger(transfer.badgeId) && transfer.toUserCode);
 
   return data;
 }

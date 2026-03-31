@@ -31,6 +31,10 @@ const badgeLevelSelect = document.getElementById("badge-level-select");
 const editBadgeSelect = document.getElementById("edit-badge-select");
 const badgeUserSelect = document.getElementById("badge-user-select");
 const badgesList = document.getElementById("badges-list");
+const badgeLineageSelect = document.getElementById("badge-lineage-select");
+const refreshBadgeLineageButton = document.getElementById("refresh-badge-lineage");
+const badgeLineageContainer = document.getElementById("badge-lineage");
+const badgeLineageMessage = document.getElementById("badge-lineage-message");
 const eventsList = document.getElementById("events-list");
 const badgeLevelDescriptionsContainer = document.getElementById("badge-level-descriptions");
 const addBadgeLevelButton = document.getElementById("add-badge-level");
@@ -40,6 +44,20 @@ const tabButtons = document.querySelectorAll(".tab-button");
 const tabPanels = document.querySelectorAll(".tab-panel");
 let usersState = [];
 let badgesState = [];
+
+function formatDateTime(value) {
+  if (!value) {
+    return "Ni podatka.";
+  }
+
+  const timestamp = new Date(value);
+
+  if (Number.isNaN(timestamp.getTime())) {
+    return value;
+  }
+
+  return timestamp.toLocaleString();
+}
 
 function switchTab(targetId) {
   tabButtons.forEach((button) => {
@@ -191,6 +209,106 @@ function renderBadgeCard(badge) {
   `;
 }
 
+function renderLineagePath(lineage) {
+  if (!Array.isArray(lineage) || lineage.length === 0) {
+    return "Ni podatka o poti.";
+  }
+
+  return lineage
+    .map((entry) => escapeHtml(entry.name || entry.code || "Neznan mentor"))
+    .join(" &rarr; ");
+}
+
+function renderBadgeChainNode(node) {
+  return `
+    <li class="badge-chain-node">
+      <div class="badge-chain-node-card">
+        <p><strong>${escapeHtml(node.toUserName || node.toUserCode || "Neznan mentor")}</strong></p>
+        <p class="muted">Prejel od: ${escapeHtml(node.fromUserName || "Admin sistem")}</p>
+        <p class="muted">Nivo: ${node.level || 1} • Globina: ${node.depth || 0}</p>
+        <p class="muted">Pot: ${renderLineagePath(node.lineage)}</p>
+      </div>
+      ${(node.children || []).length > 0 ? `<ul class="badge-chain-children">${node.children.map(renderBadgeChainNode).join("")}</ul>` : ""}
+    </li>
+  `;
+}
+
+function renderBadgeLineage(data) {
+  const roots = Array.isArray(data.roots) ? data.roots : [];
+  const transfers = Array.isArray(data.transfers) ? data.transfers : [];
+
+  if (transfers.length === 0) {
+    badgeLineageContainer.innerHTML = `
+      <p class="muted">Ta značka še nima zabeleženih prenosov. Veriga se začne beležiti pri novih dodelitvah in delitvah.</p>
+    `;
+    return;
+  }
+
+  badgeLineageContainer.innerHTML = `
+    <div class="badge-lineage-summary">
+      <article class="card badge-lineage-stat">
+        <p class="muted">Skupaj prenosov</p>
+        <p class="badge-lineage-number">${transfers.length}</p>
+      </article>
+      <article class="card badge-lineage-stat">
+        <p class="muted">Začetne veje</p>
+        <p class="badge-lineage-number">${roots.length}</p>
+      </article>
+      <article class="card badge-lineage-stat">
+        <p class="muted">Najdlje v verigi</p>
+        <p class="badge-lineage-number">${Math.max(...transfers.map((entry) => entry.depth || 0))}</p>
+      </article>
+    </div>
+    <div class="grid" style="margin-top: 1rem;">
+      <div class="card">
+        <h3>Drevo Delitev</h3>
+        <div class="badge-chain-tree">
+          <ul class="badge-chain-roots">
+            ${roots.map(renderBadgeChainNode).join("")}
+          </ul>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Zgodovina Prenosov</h3>
+        <div class="quest-mini-list">
+          ${transfers
+            .map((transfer) => `
+              <div class="quest-mini-item">
+                <p><strong>${escapeHtml(transfer.toUserName || transfer.toUserCode || "Neznan mentor")}</strong></p>
+                <p class="muted">${escapeHtml(transfer.fromUserName || "Admin sistem")} -> ${escapeHtml(transfer.toUserName || transfer.toUserCode || "Neznan mentor")}</p>
+                <p class="muted">Pot: ${renderLineagePath(transfer.lineage)}</p>
+                <p class="muted">Vir: ${escapeHtml(transfer.sourceType || "unknown")} • Nivo: ${transfer.level || 1}</p>
+                <p class="muted">Čas: ${escapeHtml(formatDateTime(transfer.createdAt))}</p>
+              </div>
+            `)
+            .join("")}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function loadBadgeLineage() {
+  const badgeId = Number(badgeLineageSelect.value);
+
+  clearMessage(badgeLineageMessage);
+
+  if (!badgeId) {
+    badgeLineageContainer.innerHTML = '<p class="muted">Izberi značko, da prikažeš verigo.</p>';
+    return;
+  }
+
+  badgeLineageContainer.innerHTML = '<p class="muted">Nalagam verigo značke ...</p>';
+
+  try {
+    const lineage = await apiFetch(`/api/badges/${badgeId}/chains`);
+    renderBadgeLineage(lineage);
+  } catch (error) {
+    badgeLineageContainer.innerHTML = `<p class="message visible error">${error.message}</p>`;
+    setMessage(badgeLineageMessage, error.message, "error");
+  }
+}
+
 function renderBadges(badges) {
   badgesState = badges;
 
@@ -200,6 +318,8 @@ function renderBadges(badges) {
     badgeLevelSelect.innerHTML = '<option value="">Ni nivojev</option>';
     editBadgeSelect.innerHTML = '<option value="">Ni značk</option>';
     eventBadgeSelect.innerHTML = '<option value="">Ni značk</option>';
+    badgeLineageSelect.innerHTML = '<option value="">Ni značk</option>';
+    badgeLineageContainer.innerHTML = '<p class="muted">Najprej ustvari značko, da lahko pregledaš verige.</p>';
     return;
   }
 
@@ -227,6 +347,20 @@ function renderBadges(badges) {
       .map((badge) => `<option value="${badge.id}">${escapeHtml(badge.name)}</option>`)
       .join("")}
   `;
+
+  const previousLineageBadgeId = badgeLineageSelect.value;
+  badgeLineageSelect.innerHTML = `
+    <option value="">Izberi značko</option>
+    ${badges
+      .map((badge) => `<option value="${badge.id}">${escapeHtml(badge.name)}</option>`)
+      .join("")}
+  `;
+
+  const selectedLineageBadge = badges.find((badge) => String(badge.id) === previousLineageBadgeId) || badges[0];
+
+  if (selectedLineageBadge) {
+    badgeLineageSelect.value = String(selectedLineageBadge.id);
+  }
 
   syncAssignBadgeLevels();
   syncEventBadgeField();
@@ -274,11 +408,15 @@ async function loadBadges() {
     } else {
       resetEditBadgeForm();
     }
+
+    await loadBadgeLineage();
   } catch (error) {
     badgesList.innerHTML = `<p class="message visible error">${error.message}</p>`;
     badgeSelect.innerHTML = '<option value="">Napaka pri nalaganju</option>';
     badgeLevelSelect.innerHTML = '<option value="">Napaka pri nalaganju</option>';
     editBadgeSelect.innerHTML = '<option value="">Napaka pri nalaganju</option>';
+    badgeLineageSelect.innerHTML = '<option value="">Napaka pri nalaganju</option>';
+    badgeLineageContainer.innerHTML = `<p class="message visible error">${error.message}</p>`;
   }
 }
 
@@ -760,6 +898,12 @@ badgeSelect.addEventListener("change", () => {
   clearMessage(assignBadgeMessage);
   syncAssignBadgeLevels();
 });
+
+badgeLineageSelect.addEventListener("change", () => {
+  loadBadgeLineage();
+});
+
+refreshBadgeLineageButton.addEventListener("click", loadBadgeLineage);
 
 eventConditionTypeSelect.addEventListener("change", () => {
   clearMessage(eventMessage);

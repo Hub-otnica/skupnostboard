@@ -21,6 +21,8 @@ const {
   getAvailableQuests,
   getAvailableQuestsForUser,
   getBadges,
+  getBadgeChainsByBadgeId,
+  getBadgeChainsByUserCode,
   getBadgeShareOptionsForUser,
   getForumMessages,
   getCommunityEvents,
@@ -83,6 +85,10 @@ router.get("/users/:code/badge-share-options", (req, res) => {
   res.json(getBadgeShareOptionsForUser(req.params.code));
 });
 
+router.get("/users/:code/badge-chains", (req, res) => {
+  res.json(getBadgeChainsByUserCode(req.params.code));
+});
+
 router.get("/users/:code/incoming-badge-requests", (req, res) => {
   res.json(getIncomingBadgeShareRequests(req.params.code));
 });
@@ -102,6 +108,10 @@ router.get("/events", (_req, res) => {
 
 router.get("/badges", (_req, res) => {
   res.json(getBadges());
+});
+
+router.get("/badges/:id/chains", (req, res) => {
+  res.json(getBadgeChainsByBadgeId(req.params.id));
 });
 
 router.get("/forum-messages", (_req, res) => {

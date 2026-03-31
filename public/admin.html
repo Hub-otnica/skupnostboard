@@ -288,6 +288,26 @@
             <h3>Obstoječe Značke</h3>
             <div id="badges-list" class="badge-grid" style="margin-top: 1rem;"></div>
           </section>
+
+          <section class="card" style="margin-top: 1rem;">
+            <div class="inline-actions" style="justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+              <h3 style="margin: 0;">Pregled Verig Značk</h3>
+              <div class="inline-actions" style="gap: 0.75rem; flex-wrap: wrap;">
+                <label style="margin: 0;">
+                  <span class="muted">Značka</span>
+                  <select id="badge-lineage-select">
+                    <option value="">Najprej naloži značke</option>
+                  </select>
+                </label>
+                <button id="refresh-badge-lineage" class="secondary" type="button">Osveži verigo</button>
+              </div>
+            </div>
+            <p class="muted">Tukaj vidiš izvor značke, vse prenose med mentorji in trenutno drevo delitev.</p>
+            <div id="badge-lineage-message" class="message"></div>
+            <div id="badge-lineage" class="badge-lineage-panel" style="margin-top: 1rem;">
+              <p class="muted">Izberi značko, da prikažeš verigo.</p>
+            </div>
+          </section>
         </div>
 
         <div class="tab-panel" id="meetings-panel" role="tabpanel" aria-labelledby="tab-button-meetings" hidden>

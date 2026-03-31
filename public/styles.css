@@ -242,6 +242,64 @@ body {
   color: var(--text-muted);
 }
 
+.badge-lineage-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.badge-lineage-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.badge-lineage-stat {
+  min-height: 120px;
+  justify-content: center;
+}
+
+.badge-lineage-number {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 700;
+  color: #fff4f4;
+}
+
+.badge-chain-tree {
+  overflow-x: auto;
+}
+
+.badge-chain-roots,
+.badge-chain-children {
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+}
+
+.badge-chain-children {
+  margin-top: 0.85rem;
+  margin-left: 1.2rem;
+  padding-left: 1rem;
+  border-left: 1px solid rgba(255, 91, 107, 0.25);
+}
+
+.badge-chain-node + .badge-chain-node {
+  margin-top: 0.85rem;
+}
+
+.badge-chain-node-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(225, 29, 46, 0.18);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015));
+}
+
+.badge-chain-node-card p {
+  margin: 0;
+}
+
 .quest-detail {
   display: grid;
   gap: 1rem;

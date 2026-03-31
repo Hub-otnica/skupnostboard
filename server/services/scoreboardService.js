@@ -192,6 +192,137 @@ function setUserBadgeLevel(user, badgeId, level) {
   user.badgeIds = user.userBadges.map((entry) => entry.badgeId);
 }
 
+function getBadgeTransferEntry(data, badgeId, userCode) {
+  return (Array.isArray(data.badgeTransfers) ? data.badgeTransfers : []).find(
+    (entry) => entry.badgeId === badgeId && entry.toUserCode === userCode
+  );
+}
+
+function getBadgeTransferLineage(transfer) {
+  const lineageCodes = Array.isArray(transfer.lineageCodes) && transfer.lineageCodes.length > 0
+    ? transfer.lineageCodes
+    : [transfer.toUserCode].filter(Boolean);
+  const lineageNames = Array.isArray(transfer.lineageNames) && transfer.lineageNames.length > 0
+    ? transfer.lineageNames
+    : [transfer.toUserName].filter(Boolean);
+
+  return lineageCodes.map((code, index) => ({
+    code,
+    name: lineageNames[index] || ""
+  }));
+}
+
+function decorateBadgeTransfer(transfer, data) {
+  const badge = data.badges.find((entry) => entry.id === transfer.badgeId);
+
+  return {
+    ...transfer,
+    badgeName: transfer.badgeName || (badge && badge.name) || "Značka",
+    lineage: getBadgeTransferLineage(transfer)
+  };
+}
+
+function recordBadgeTransfer(data, { badge, recipient, level, giver = null, sourceType, requestId = null, timestamp }) {
+  if (!Array.isArray(data.badgeTransfers)) {
+    data.badgeTransfers = [];
+  }
+
+  const existingTransfer = getBadgeTransferEntry(data, badge.id, recipient.code);
+  const giverTransfer = giver ? getBadgeTransferEntry(data, badge.id, giver.code) : null;
+  const lineage = giverTransfer
+    ? [...getBadgeTransferLineage(giverTransfer), { code: recipient.code, name: recipient.name }]
+    : [{ code: recipient.code, name: recipient.name }];
+  const rootUserCode = giverTransfer ? giverTransfer.rootUserCode : recipient.code;
+  const rootUserName = giverTransfer ? giverTransfer.rootUserName : recipient.name;
+
+  if (existingTransfer) {
+    existingTransfer.level = level;
+    existingTransfer.badgeName = badge.name;
+    existingTransfer.updatedAt = timestamp;
+
+    if (!existingTransfer.lineageCodes || existingTransfer.lineageCodes.length === 0) {
+      existingTransfer.lineageCodes = lineage.map((entry) => entry.code);
+      existingTransfer.lineageNames = lineage.map((entry) => entry.name);
+      existingTransfer.depth = Math.max(0, lineage.length - 1);
+      existingTransfer.rootUserCode = rootUserCode;
+      existingTransfer.rootUserName = rootUserName;
+    }
+
+    if (!existingTransfer.sourceType || existingTransfer.sourceType === "unknown") {
+      existingTransfer.sourceType = sourceType;
+    }
+
+    if (!existingTransfer.requestId && Number.isInteger(requestId)) {
+      existingTransfer.requestId = requestId;
+    }
+
+    if (!existingTransfer.fromUserCode && giver) {
+      existingTransfer.fromUserCode = giver.code;
+      existingTransfer.fromUserName = giver.name;
+    }
+
+    return existingTransfer;
+  }
+
+  const transfer = {
+    id: getNextId(data.badgeTransfers),
+    badgeId: badge.id,
+    badgeName: badge.name,
+    fromUserCode: giver ? giver.code : "",
+    fromUserName: giver ? giver.name : "",
+    toUserCode: recipient.code,
+    toUserName: recipient.name,
+    level,
+    sourceType,
+    requestId: Number.isInteger(requestId) ? requestId : null,
+    rootUserCode,
+    rootUserName,
+    lineageCodes: lineage.map((entry) => entry.code),
+    lineageNames: lineage.map((entry) => entry.name),
+    depth: Math.max(0, lineage.length - 1),
+    createdAt: timestamp,
+    updatedAt: timestamp
+  };
+
+  data.badgeTransfers.push(transfer);
+
+  return transfer;
+}
+
+function getBadgeChainSummary(data, badgeId, userCode) {
+  const incomingTransfer = getBadgeTransferEntry(data, badgeId, userCode);
+  const outgoingTransfers = (Array.isArray(data.badgeTransfers) ? data.badgeTransfers : [])
+    .filter((entry) => entry.badgeId === badgeId && entry.fromUserCode === userCode)
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    .map((entry) => decorateBadgeTransfer(entry, data));
+
+  if (!incomingTransfer) {
+    return {
+      sourceType: "unknown",
+      fromUserCode: "",
+      fromUserName: "",
+      rootUserCode: userCode,
+      rootUserName: "",
+      depth: 0,
+      lineage: [{ code: userCode, name: "" }],
+      receivedAt: "",
+      sharedWith: outgoingTransfers
+    };
+  }
+
+  return {
+    sourceType: incomingTransfer.sourceType,
+    fromUserCode: incomingTransfer.fromUserCode,
+    fromUserName: incomingTransfer.fromUserName,
+    rootUserCode: incomingTransfer.rootUserCode,
+    rootUserName: incomingTransfer.rootUserName,
+    depth: incomingTransfer.depth,
+    lineage: getBadgeTransferLineage(incomingTransfer),
+    receivedAt: incomingTransfer.createdAt,
+    sharedWith: outgoingTransfers
+  };
+}
+
 function syncBadgeDependents(data, badge) {
   const maxLevel = Array.isArray(badge.levelDescriptions) && badge.levelDescriptions.length > 0
     ? badge.levelDescriptions.length
@@ -216,6 +347,16 @@ function syncBadgeDependents(data, badge) {
     request.badgeName = badge.name;
     request.badgeRequirements = badge.requirements;
     request.badgeDescription = getBadgeLevelDescription(badge, nextLevel);
+  });
+
+  data.badgeTransfers.forEach((transfer) => {
+    if (transfer.badgeId !== badge.id) {
+      return;
+    }
+
+    transfer.badgeName = badge.name;
+    transfer.level = Math.min(Number(transfer.level) || 1, maxLevel);
+    transfer.updatedAt = new Date().toISOString();
   });
 }
 
@@ -464,7 +605,8 @@ function decorateUserWithBadges(user, data) {
         return {
           ...badge,
           level: entry.level,
-          description: getBadgeLevelDescription(badge, entry.level)
+          description: getBadgeLevelDescription(badge, entry.level),
+          chain: getBadgeChainSummary(data, badge.id, user.code)
         };
       })
       .filter(Boolean)
@@ -599,6 +741,40 @@ function syncUserReferences(data, previousUser, nextUser) {
     if (message.userCode === previousUser.code) {
       message.userCode = nextUser.code;
       message.userName = nextUser.name;
+    }
+  });
+
+  data.badgeTransfers.forEach((transfer) => {
+    if (transfer.fromUserCode === previousUser.code) {
+      transfer.fromUserCode = nextUser.code;
+      transfer.fromUserName = nextUser.name;
+    }
+
+    if (transfer.toUserCode === previousUser.code) {
+      transfer.toUserCode = nextUser.code;
+      transfer.toUserName = nextUser.name;
+    }
+
+    if (transfer.rootUserCode === previousUser.code) {
+      transfer.rootUserCode = nextUser.code;
+      transfer.rootUserName = nextUser.name;
+    }
+
+    if (Array.isArray(transfer.lineageCodes) || Array.isArray(transfer.lineageNames)) {
+      const lineageEntries = (transfer.lineageCodes || []).map((entry, index) => ({
+        code: entry,
+        name: (transfer.lineageNames || [])[index] || ""
+      }));
+
+      lineageEntries.forEach((entry) => {
+        if (entry.code === previousUser.code) {
+          entry.code = nextUser.code;
+          entry.name = nextUser.name;
+        }
+      });
+
+      transfer.lineageCodes = lineageEntries.map((entry) => entry.code);
+      transfer.lineageNames = lineageEntries.map((entry) => entry.name);
     }
   });
 }
@@ -950,6 +1126,7 @@ function acceptBadgeShareRequest(requestId, targetCode, approvedLevel) {
   const id = Number(requestId);
   const request = data.requests.find((entry) => entry.id === id);
   const target = getUserRecordByCode(targetCode, data);
+  const timestamp = new Date().toISOString();
 
   if (!Number.isInteger(id)) {
     throw createError(400, "Neveljaven ID zahtevka.");
@@ -981,11 +1158,20 @@ function acceptBadgeShareRequest(requestId, targetCode, approvedLevel) {
   );
 
   setUserBadgeLevel(requester, request.badgeId, badgeLevel);
+  recordBadgeTransfer(data, {
+    badge,
+    recipient: requester,
+    level: badgeLevel,
+    giver: target,
+    sourceType: "share",
+    requestId: request.id,
+    timestamp
+  });
 
   request.badgeLevel = badgeLevel;
   request.badgeDescription = getBadgeLevelDescription(badge, badgeLevel);
   request.status = "approved";
-  request.processedAt = new Date().toISOString();
+  request.processedAt = timestamp;
   writeData(data);
 
   return request;
@@ -995,15 +1181,73 @@ function assignBadgeToUserByName(name, badgeId, level) {
   const data = readData();
   const user = getUserRecordByName(name, data);
   const badge = getBadgeRecordById(badgeId, data);
+  const timestamp = new Date().toISOString();
   const badgeLevel = validateBadgeLevel(
     level,
     Array.isArray(badge.levelDescriptions) ? badge.levelDescriptions.length : 1
   );
 
   setUserBadgeLevel(user, badge.id, badgeLevel);
+  recordBadgeTransfer(data, {
+    badge,
+    recipient: user,
+    level: badgeLevel,
+    sourceType: "admin",
+    timestamp
+  });
   writeData(data);
 
   return decorateUserWithBadges(user, data);
+}
+
+function getBadgeChainsByUserCode(code) {
+  const data = readDataWithProcessedEvents();
+  const user = getUserRecordByCode(code, data);
+  const transfers = (Array.isArray(data.badgeTransfers) ? data.badgeTransfers : []);
+
+  return {
+    user: decorateUserWithBadges(user, data),
+    received: transfers
+      .filter((entry) => entry.toUserCode === user.code)
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+      .map((entry) => decorateBadgeTransfer(entry, data)),
+    shared: transfers
+      .filter((entry) => entry.fromUserCode === user.code)
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+      .map((entry) => decorateBadgeTransfer(entry, data))
+  };
+}
+
+function buildBadgeChainTreeNode(transfer, transfersByGiver, data) {
+  return {
+    ...decorateBadgeTransfer(transfer, data),
+    children: (transfersByGiver.get(transfer.toUserCode) || [])
+      .map((entry) => buildBadgeChainTreeNode(entry, transfersByGiver, data))
+  };
+}
+
+function getBadgeChainsByBadgeId(badgeId) {
+  const data = readDataWithProcessedEvents();
+  const badge = getBadgeRecordById(badgeId, data);
+  const transfers = (Array.isArray(data.badgeTransfers) ? data.badgeTransfers : [])
+    .filter((entry) => entry.badgeId === badge.id)
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  const transfersByGiver = new Map();
+
+  transfers.forEach((transfer) => {
+    const key = transfer.fromUserCode || "";
+    const existingEntries = transfersByGiver.get(key) || [];
+    existingEntries.push(transfer);
+    transfersByGiver.set(key, existingEntries);
+  });
+
+  return {
+    badge,
+    transfers: transfers.map((entry) => decorateBadgeTransfer(entry, data)),
+    roots: transfers
+      .filter((entry) => !entry.fromUserCode)
+      .map((entry) => buildBadgeChainTreeNode(entry, transfersByGiver, data))
+  };
 }
 
 function joinQuest(payload) {
@@ -1277,6 +1521,8 @@ module.exports = {
   getAvailableQuestsForUser,
   getBadges,
   getBadgeShareOptionsForUser,
+  getBadgeChainsByBadgeId,
+  getBadgeChainsByUserCode,
   getForumMessages,
   getCommunityEvents,
   getIncomingBadgeShareRequests,
