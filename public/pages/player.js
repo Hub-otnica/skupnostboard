@@ -14,7 +14,7 @@ function renderPlayerSummary(user) {
 
 function renderBadges(badges) {
   if (!badges.length) {
-    playerBadges.innerHTML = '<p class="muted">Ta mentor še nima značk.</p>';
+    playerBadges.innerHTML = '<p class="muted">Ta mentorica/mentor še nima značk.</p>';
     return;
   }
 

@@ -13,7 +13,7 @@
         <nav class="nav">
           <a href="/">Lestvica</a>
           <a href="/forum">Forum</a>
-          <a href="/user">Mentor</a>
+          <a href="/user">Mentorica/Mentor</a>
           <a href="/admin">Admin</a>
         </nav>
       </div>
@@ -22,12 +22,12 @@
     <main class="container">
       <section class="hero">
         <h2>Nadzorna Soba</h2>
-        <p class="muted">Upravljaj mentorje, pregleduj zahtevke in urejaj aktivnosti skupnosti.</p>
+        <p class="muted">Upravljaj mentorice/mentorje, pregleduj zahtevke in urejaj aktivnosti skupnosti.</p>
       </section>
 
       <section class="card">
         <div class="tab-bar" role="tablist" aria-label="Admin funkcije">
-          <button class="tab-button active" id="tab-button-mentors" type="button" data-tab-target="mentors-panel" aria-selected="true">Mentorji</button>
+          <button class="tab-button active" id="tab-button-mentors" type="button" data-tab-target="mentors-panel" aria-selected="true">Mentorice/Mentorji</button>
           <button class="tab-button" id="tab-button-quests" type="button" data-tab-target="quests-panel" aria-selected="false">Questi</button>
           <button class="tab-button" id="tab-button-badges" type="button" data-tab-target="badges-panel" aria-selected="false">Značke</button>
           <button class="tab-button" id="tab-button-meetings" type="button" data-tab-target="meetings-panel" aria-selected="false">Sestanki</button>
@@ -36,40 +36,40 @@
         <div class="tab-panel active" id="mentors-panel" role="tabpanel" aria-labelledby="tab-button-mentors">
           <div class="grid">
             <div class="card">
-              <h3>Ustvari Mentorja</h3>
+              <h3>Ustvari Mentorico/Mentorja</h3>
               <form id="create-user-form">
                 <label>
                   Ime
-                  <input name="name" type="text" placeholder="Unikatno ime mentorja" required />
+                  <input name="name" type="text" placeholder="Unikatno ime mentorice/mentorja" required />
                 </label>
                 <label>
                   Unikatna koda
                   <input name="code" type="text" placeholder="Primer: JAMIE01" required />
                 </label>
-                <button type="submit">Ustvari mentorja</button>
+                <button type="submit">Ustvari mentorico/mentorja</button>
               </form>
-              <p class="muted">Ime mentorja in koda morata biti unikatna.</p>
+              <p class="muted">Ime mentorice/mentorja in koda morata biti unikatna.</p>
               <div id="create-user-message" class="message"></div>
             </div>
 
             <div class="card">
-              <h3>Uredi Mentorja</h3>
+              <h3>Uredi Mentorico/Mentorja</h3>
               <form id="edit-user-form">
                 <label>
-                  Izberi mentorja
+                  Izberi mentorico/mentorja
                   <select name="currentCode" id="edit-user-select" required>
-                    <option value="">Nalaganje mentorjev ...</option>
+                    <option value="">Nalaganje mentoric/mentorjev ...</option>
                   </select>
                 </label>
                 <label>
-                  Ime mentorja
-                  <input name="name" id="edit-user-name" type="text" placeholder="Novo ime mentorja" required />
+                  Ime mentorice/mentorja
+                  <input name="name" id="edit-user-name" type="text" placeholder="Novo ime mentorice/mentorja" required />
                 </label>
                 <label>
-                  Koda mentorja
-                  <input name="code" id="edit-user-code" type="text" placeholder="Nova koda mentorja" required />
+                  Koda mentorice/mentorja
+                  <input name="code" id="edit-user-code" type="text" placeholder="Nova koda mentorice/mentorja" required />
                 </label>
-                <button type="submit">Shrani mentorja</button>
+                <button type="submit">Shrani mentorico/mentorja</button>
               </form>
               <div id="edit-user-message" class="message"></div>
             </div>
@@ -78,9 +78,9 @@
               <h3>Ročni Vnos Točk</h3>
               <form id="manual-points-form">
                 <label>
-                  Mentor
+                  Mentorica/Mentor
                   <select name="name" id="manual-points-user-select" required>
-                    <option value="">Nalaganje mentorjev ...</option>
+                    <option value="">Nalaganje mentoric/mentorjev ...</option>
                   </select>
                 </label>
                 <label>
@@ -93,7 +93,7 @@
                 </label>
                 <button type="submit">Dodaj točke</button>
               </form>
-              <p class="muted">Mentorja izberi s seznama in nato vpiši število točk.</p>
+              <p class="muted">Mentorico/mentorja izberi s seznama in nato vpiši število točk.</p>
               <div id="manual-points-message" class="message"></div>
             </div>
           </div>
@@ -126,7 +126,7 @@
                 </label>
                 <div>
                   <div class="inline-actions" style="justify-content: space-between; align-items: center;">
-                    <p class="muted" style="margin: 0;">Dodaj med 1 in 10 korakov, ki jih mora mentor odkljukati.</p>
+                    <p class="muted" style="margin: 0;">Dodaj med 1 in 10 korakov, ki jih mora mentorica/mentor odkljukati.</p>
                     <button id="add-quest-step" class="secondary" type="button">Dodaj korak</button>
                   </div>
                   <div id="quest-steps" class="quest-step-list"></div>
@@ -150,9 +150,9 @@
                 <label>
                   Vrsta pogoja
                   <select name="conditionType" id="event-condition-type" required>
-                    <option value="points-total">Skupne točke mentorjev</option>
-                    <option value="attendance-total">Skupni sestanki mentorjev</option>
-                    <option value="badge-count">Število mentorjev z značko</option>
+                    <option value="points-total">Skupne točke mentoric/mentorjev</option>
+                    <option value="attendance-total">Skupni sestanki mentoric/mentorjev</option>
+                    <option value="badge-count">Število mentoric/mentorjev z značko</option>
                   </select>
                 </label>
                 <label id="event-badge-label" hidden>
@@ -224,9 +224,9 @@
               <h3>Dodeli Značko</h3>
               <form id="assign-badge-form">
                 <label>
-                  Mentor
+                  Mentorica/Mentor
                   <select name="name" id="badge-user-select" required>
-                    <option value="">Nalaganje mentorjev ...</option>
+                    <option value="">Nalaganje mentoric/mentorjev ...</option>
                   </select>
                 </label>
                 <label>
@@ -302,7 +302,7 @@
                 <button id="refresh-badge-lineage" class="secondary" type="button">Osveži verigo</button>
               </div>
             </div>
-            <p class="muted">Tukaj vidiš izvor značke, vse prenose med mentorji in trenutno drevo delitev.</p>
+            <p class="muted">Tukaj vidiš izvor značke, vse prenose med mentoricami/mentorji in trenutno drevo delitev.</p>
             <div id="badge-lineage-message" class="message"></div>
             <div id="badge-lineage" class="badge-lineage-panel" style="margin-top: 1rem;">
               <p class="muted">Izberi značko, da prikažeš verigo.</p>
@@ -316,9 +316,9 @@
               <h3>Zabeleži Sestanek</h3>
               <form id="meeting-form">
                 <div>
-                  <p class="muted">Izberi mentorje, ki so bili prisotni na tem sestanku.</p>
+                  <p class="muted">Izberi mentorice/mentorje, ki so bile prisotne/bili prisotni na tem sestanku.</p>
                   <div id="meeting-members" class="member-list">
-                    <p class="muted">Nalaganje mentorjev ...</p>
+                    <p class="muted">Nalaganje mentoric/mentorjev ...</p>
                   </div>
                 </div>
                 <label>

@@ -215,7 +215,7 @@ function renderLineagePath(lineage) {
   }
 
   return lineage
-    .map((entry) => escapeHtml(entry.name || entry.code || "Neznan mentor"))
+    .map((entry) => escapeHtml(entry.name || entry.code || "Neznana mentorica/neznan mentor"))
     .join(" &rarr; ");
 }
 
@@ -223,7 +223,7 @@ function renderBadgeChainNode(node) {
   return `
     <li class="badge-chain-node">
       <div class="badge-chain-node-card">
-        <p><strong>${escapeHtml(node.toUserName || node.toUserCode || "Neznan mentor")}</strong></p>
+        <p><strong>${escapeHtml(node.toUserName || node.toUserCode || "Neznana mentorica/neznan mentor")}</strong></p>
         <p class="muted">Prejel od: ${escapeHtml(node.fromUserName || "Admin sistem")}</p>
         <p class="muted">Nivo: ${node.level || 1} • Globina: ${node.depth || 0}</p>
         <p class="muted">Pot: ${renderLineagePath(node.lineage)}</p>
@@ -274,8 +274,8 @@ function renderBadgeLineage(data) {
           ${transfers
             .map((transfer) => `
               <div class="quest-mini-item">
-                <p><strong>${escapeHtml(transfer.toUserName || transfer.toUserCode || "Neznan mentor")}</strong></p>
-                <p class="muted">${escapeHtml(transfer.fromUserName || "Admin sistem")} -> ${escapeHtml(transfer.toUserName || transfer.toUserCode || "Neznan mentor")}</p>
+                <p><strong>${escapeHtml(transfer.toUserName || transfer.toUserCode || "Neznana mentorica/neznan mentor")}</strong></p>
+                <p class="muted">${escapeHtml(transfer.fromUserName || "Admin sistem")} -> ${escapeHtml(transfer.toUserName || transfer.toUserCode || "Neznana mentorica/neznan mentor")}</p>
                 <p class="muted">Pot: ${renderLineagePath(transfer.lineage)}</p>
                 <p class="muted">Vir: ${escapeHtml(transfer.sourceType || "unknown")} • Nivo: ${transfer.level || 1}</p>
                 <p class="muted">Čas: ${escapeHtml(formatDateTime(transfer.createdAt))}</p>
@@ -380,8 +380,8 @@ function renderEvents(events) {
         <p><strong>Datum preverjanja:</strong> ${escapeHtml(event.date)}</p>
         <p><strong>Pogoj:</strong> ${escapeHtml(event.conditionLabel)}</p>
         <p><strong>Napredek:</strong> ${event.currentValue} / ${event.targetValue}</p>
-        <p><strong>Nagrada:</strong> +${event.rewardPoints} točk vsem mentorjem</p>
-        <p><strong>Kazen:</strong> -${event.penaltyPoints} točk vsem mentorjem</p>
+        <p><strong>Nagrada:</strong> +${event.rewardPoints} točk vsem mentoricam/mentorjem</p>
+        <p><strong>Kazen:</strong> -${event.penaltyPoints} točk vsem mentoricam/mentorjem</p>
       </article>
     `)
     .join("");
@@ -462,10 +462,10 @@ function renderMeetingMembers(users) {
   usersState = users;
 
   if (users.length === 0) {
-    meetingMembersContainer.innerHTML = '<p class="muted">Pred beleženjem sestanka najprej ustvari mentorje.</p>';
-    editUserSelect.innerHTML = '<option value="">Ni mentorjev</option>';
-    manualPointsUserSelect.innerHTML = '<option value="">Ni mentorjev</option>';
-    badgeUserSelect.innerHTML = '<option value="">Ni mentorjev</option>';
+    meetingMembersContainer.innerHTML = '<p class="muted">Pred beleženjem sestanka najprej ustvari mentorice/mentorje.</p>';
+    editUserSelect.innerHTML = '<option value="">Ni mentoric/mentorjev</option>';
+    manualPointsUserSelect.innerHTML = '<option value="">Ni mentoric/mentorjev</option>';
+    badgeUserSelect.innerHTML = '<option value="">Ni mentoric/mentorjev</option>';
     return;
   }
 
@@ -479,21 +479,21 @@ function renderMeetingMembers(users) {
     .join("");
 
   editUserSelect.innerHTML = `
-    <option value="">Izberi mentorja</option>
+    <option value="">Izberi mentorico/mentorja</option>
     ${users
       .map((user) => `<option value="${escapeHtml(user.code)}">${escapeHtml(user.name)}</option>`)
       .join("")}
   `;
 
   manualPointsUserSelect.innerHTML = `
-    <option value="">Izberi mentorja</option>
+    <option value="">Izberi mentorico/mentorja</option>
     ${users
       .map((user) => `<option value="${escapeHtml(user.name)}">${escapeHtml(user.name)}</option>`)
       .join("")}
   `;
 
   badgeUserSelect.innerHTML = `
-    <option value="">Izberi mentorja</option>
+    <option value="">Izberi mentorico/mentorja</option>
     ${users
       .map((user) => `<option value="${escapeHtml(user.name)}">${escapeHtml(user.name)}</option>`)
       .join("")}
@@ -582,7 +582,7 @@ createUserForm.addEventListener("submit", async (event) => {
     });
 
     createUserForm.reset();
-    setMessage(createUserMessage, `Ustvarjen je bil mentor ${user.name}.`, "success");
+    setMessage(createUserMessage, `Ustvarjena je bila mentorica/mentor ${user.name}.`, "success");
     await loadMeetingMembers();
   } catch (error) {
     setMessage(createUserMessage, error.message, "error");
@@ -604,7 +604,7 @@ editUserForm.addEventListener("submit", async (event) => {
       body: JSON.stringify({ name, code })
     });
 
-    setMessage(editUserMessage, `Podatki mentorja ${user.name} so bili posodobljeni.`, "success");
+    setMessage(editUserMessage, `Podatki mentorice/mentorja ${user.name} so bili posodobljeni.`, "success");
     await loadMeetingMembers();
     populateEditUserForm(user);
   } catch (error) {
@@ -827,7 +827,7 @@ assignBadgeForm.addEventListener("submit", async (event) => {
 
     assignBadgeForm.reset();
     syncAssignBadgeLevels();
-    setMessage(assignBadgeMessage, `Značka nivoja ${level} je bila dodeljena mentorju ${user.name}.`, "success");
+    setMessage(assignBadgeMessage, `Značka nivoja ${level} je bila dodeljena mentorici/mentorju ${user.name}.`, "success");
     await loadBadges();
   } catch (error) {
     setMessage(assignBadgeMessage, error.message, "error");

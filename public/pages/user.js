@@ -79,7 +79,7 @@ function hideUserState() {
 
 function renderUserBadges(badges) {
   if (!badges.length) {
-    userBadgesContainer.innerHTML = '<p class="muted">Ta mentor še nima značk.</p>';
+    userBadgesContainer.innerHTML = '<p class="muted">Ta mentorica/mentor še nima značk.</p>';
     return;
   }
 
@@ -143,7 +143,7 @@ function renderSelectedQuest() {
       <div class="quest-mini-list">${participantList}</div>
       ${questStatus}
       <button type="button" id="join-quest-button" ${canJoin ? "" : "disabled"}>Prijavi se na quest</button>
-      <p class="muted">Quest lahko odda katerikoli prijavljeni mentor, ko je ekipa popolna in so vsi koraki odkljukani.</p>
+      <p class="muted">Quest lahko odda katerakoli prijavljena mentorica/katerikoli prijavljeni mentor, ko je ekipa popolna in so vsi koraki odkljukani.</p>
       <form id="quest-submit-form">
         <div class="quest-checklist">
           ${quest.steps
@@ -166,7 +166,7 @@ function renderSelectedQuest() {
 function renderBadgeShareOptions() {
   if (!badgeShareOptions.length) {
     badgeShareSelect.innerHTML = '<option value="">Ni značk za pridobitev</option>';
-    badgeHolderSelect.innerHTML = '<option value="">Ni mentorjev</option>';
+    badgeHolderSelect.innerHTML = '<option value="">Ni mentoric/mentorjev</option>';
     badgeRequirementsContainer.innerHTML = '<p class="muted">Trenutno ni značk, ki bi jih lahko pridobil.</p>';
     badgeHoldersContainer.innerHTML = '<p class="muted">Trenutno ni značk, ki bi jih lahko pridobil.</p>';
     return;
@@ -187,7 +187,7 @@ function renderSelectedBadgeHolders() {
   const badge = badgeShareOptions.find((entry) => entry.id === selectedBadgeId);
 
   if (!badge) {
-    badgeHolderSelect.innerHTML = '<option value="">Izberi mentorja</option>';
+    badgeHolderSelect.innerHTML = '<option value="">Izberi mentorico/mentorja</option>';
     badgeRequirementsContainer.innerHTML = '<p class="muted">Izberi značko, da vidiš pogoje za pridobitev.</p>';
     badgeHoldersContainer.innerHTML = '<p class="muted">Izberi značko, da vidiš kdo jo ima.</p>';
     return;
@@ -203,7 +203,7 @@ function renderSelectedBadgeHolders() {
     .join("");
 
   badgeHolderSelect.innerHTML = `
-    <option value="">Izberi mentorja</option>
+    <option value="">Izberi mentorico/mentorja</option>
     ${badge.holders
       .map((holder) => `<option value="${escapeHtml(holder.code)}">${escapeHtml(holder.name)} - nivo ${holder.level || 1}</option>`)
       .join("")}
@@ -317,7 +317,7 @@ lookupForm.addEventListener("submit", async (event) => {
     currentUser = user;
     renderUser(user);
     document.getElementById("request-code").value = user.code;
-    setMessage(lookupMessage, `Naložene so trenutne točke mentorja ${user.name}.`, "success");
+    setMessage(lookupMessage, `Naložene so trenutne točke mentorice/mentorja ${user.name}.`, "success");
     await Promise.all([loadQuests(), loadBadgeShareOptions(), loadIncomingBadgeRequests()]);
   } catch (error) {
     hideUserState();

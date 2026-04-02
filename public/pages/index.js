@@ -21,6 +21,27 @@ function assignPointsRank(users) {
 }
 
 function getSortedUsers(users, sortMode) {
+  if (sortMode === "p2p") {
+    return [...users].sort((a, b) => {
+      const aP2p = Number.isInteger(a.p2p) ? a.p2p : 0;
+      const bP2p = Number.isInteger(b.p2p) ? b.p2p : 0;
+
+      if (bP2p !== aP2p) {
+        return bP2p - aP2p;
+      }
+
+      if (b.points !== a.points) {
+        return b.points - a.points;
+      }
+
+      if (b.attendance !== a.attendance) {
+        return b.attendance - a.attendance;
+      }
+
+      return a.name.localeCompare(b.name);
+    });
+  }
+
   if (sortMode === "badges") {
     return [...users].sort((a, b) => {
       const aBadgeCount = Array.isArray(a.userBadges) ? a.userBadges.length : Array.isArray(a.badgeIds) ? a.badgeIds.length : 0;
@@ -64,7 +85,7 @@ function renderScoreboard() {
   const users = getSortedUsers(scoreboardUsers, sortMode);
 
   if (users.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5">Mentorjev še ni.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6">Mentoric/mentorjev še ni.</td></tr>';
     return;
   }
 
@@ -76,6 +97,7 @@ function renderScoreboard() {
         <td>${user.points}</td>
         <td>${user.attendance}</td>
         <td>${Array.isArray(user.userBadges) ? user.userBadges.length : Array.isArray(user.badgeIds) ? user.badgeIds.length : 0}</td>
+        <td>${Number.isInteger(user.p2p) ? user.p2p : 0}</td>
       </tr>
     `)
     .join("");
@@ -95,8 +117,8 @@ function renderEvents(events) {
         <p><strong>Datum preverjanja:</strong> ${escapeHtml(event.date)}</p>
         <p><strong>Pogoj:</strong> ${escapeHtml(event.conditionLabel)}</p>
         <p><strong>Napredek skupnosti:</strong> ${event.currentValue} / ${event.targetValue}</p>
-        <p><strong>Nagrada ob uspehu:</strong> +${event.rewardPoints} točk vsem mentorjem</p>
-        <p><strong>Kazen ob neuspehu:</strong> -${event.penaltyPoints} točk vsem mentorjem</p>
+        <p><strong>Nagrada ob uspehu:</strong> +${event.rewardPoints} točk vsem mentoricam/mentorjem</p>
+        <p><strong>Kazen ob neuspehu:</strong> -${event.penaltyPoints} točk vsem mentoricam/mentorjem</p>
       </article>
     `)
     .join("");
@@ -112,7 +134,7 @@ async function loadScoreboard() {
     renderScoreboard();
     renderEvents(events);
   } catch (error) {
-    tbody.innerHTML = `<tr><td colspan="5">${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6">${error.message}</td></tr>`;
     eventsList.innerHTML = `<p class="message visible error">${error.message}</p>`;
   }
 }

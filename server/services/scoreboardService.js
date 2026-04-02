@@ -394,16 +394,16 @@ function getQuestRecordById(questId, data = readData()) {
 
 function buildEventConditionLabel(event, data) {
   if (event.conditionType === "points-total") {
-    return `Skupne točke vseh mentorjev: ${event.targetValue}`;
+    return `Skupne točke vseh mentoric/mentorjev: ${event.targetValue}`;
   }
 
   if (event.conditionType === "attendance-total") {
-    return `Skupni sestanki vseh mentorjev: ${event.targetValue}`;
+    return `Skupni sestanki vseh mentoric/mentorjev: ${event.targetValue}`;
   }
 
   if (event.conditionType === "badge-count") {
     const badge = event.badgeId ? data.badges.find((entry) => entry.id === event.badgeId) : null;
-    return `Mentorji z značko "${badge ? badge.name : "neznana značka"}": ${event.targetValue}`;
+    return `Mentorice/Mentorji z značko "${badge ? badge.name : "neznana značka"}": ${event.targetValue}`;
   }
 
   return "Pogoj ni nastavljen.";
@@ -488,18 +488,35 @@ function readDataWithProcessedEvents() {
 
 function getSortedUsers() {
   const data = readDataWithProcessedEvents();
-
-  return [...data.users].sort((a, b) => {
-    if (b.points !== a.points) {
-      return b.points - a.points;
+  const p2pAcceptedCountByCode = data.requests.reduce((counts, request) => {
+    if (
+      request.type === "badge-share" &&
+      request.status === "approved" &&
+      request.targetUserCode
+    ) {
+      const code = normalizeCode(request.targetUserCode);
+      counts.set(code, (counts.get(code) || 0) + 1);
     }
 
-    if (b.attendance !== a.attendance) {
-      return b.attendance - a.attendance;
-    }
+    return counts;
+  }, new Map());
 
-    return a.name.localeCompare(b.name);
-  });
+  return data.users
+    .map((user) => ({
+      ...user,
+      p2p: p2pAcceptedCountByCode.get(user.code) || 0
+    }))
+    .sort((a, b) => {
+      if (b.points !== a.points) {
+        return b.points - a.points;
+      }
+
+      if (b.attendance !== a.attendance) {
+        return b.attendance - a.attendance;
+      }
+
+      return a.name.localeCompare(b.name);
+    });
 }
 
 function getForumMessages() {
