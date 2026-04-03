@@ -222,6 +222,24 @@ body {
   box-shadow: 0 0 0 2px rgba(255, 91, 107, 0.16);
 }
 
+.badge-network-canvas-wrap {
+  width: 100%;
+  min-height: 320px;
+  border: 1px solid rgba(225, 29, 46, 0.24);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at top right, rgba(225, 29, 46, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.005)),
+    rgba(13, 13, 13, 0.92);
+  overflow: hidden;
+}
+
+#badge-network-canvas {
+  display: block;
+  width: 100%;
+  height: clamp(320px, 58vw, 560px);
+}
+
 .quest-meta {
   color: #ffd6d6;
   font-weight: 700;
@@ -419,6 +437,29 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 1rem;
+}
+
+.mentor-help-card {
+  margin-bottom: 1rem;
+  border-color: rgba(225, 29, 46, 0.16);
+}
+
+.mentor-help-card details {
+  color: var(--text-muted);
+}
+
+.mentor-help-card summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #f1dede;
+  user-select: none;
+}
+
+.mentor-help-card ul {
+  margin: 0.75rem 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.35rem;
 }
 
 .table-wrap {

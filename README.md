@@ -7,6 +7,8 @@ Simple scoreboard web app built with Node.js, Express, vanilla HTML/CSS/JavaScri
 - Public scoreboard sorted by points
 - Clickable player names with a page showing accepted request history
 - Code-based user lookup with no login flow
+- Badge-sharing network visualization on the scoreboard (canvas graph by selected badge)
+- Admin login with token-based session (username + password)
 - User point requests with optional reason
 - Quest system with admin-created tasks and user submissions for approval
 - Admin dashboard for approving or rejecting requests
@@ -39,6 +41,7 @@ skorbord/
 │   ├── routes/
 │   │   └── api.js
 │   └── services/
+│       ├── adminAuthService.js
 │       └── scoreboardService.js
 └── README.md
 ```
@@ -68,12 +71,28 @@ skorbord/
 - `http://localhost:3000/admin` for the admin dashboard
 - `http://localhost:3000/player?code=ALEX01` for a player's accepted-request log
 
+## Admin login configuration
+
+By default, admin password is set through first-time setup in the `/admin` UI and stored as a hash in `server/data/db.json`.
+
+Optional environment override:
+
+- `ADMIN_USERNAME` (default: `admin`)
+- `ADMIN_PASSWORD` (if set, first-time setup UI is skipped and env password is used)
+
+Example:
+
+```bash
+ADMIN_USERNAME=admin ADMIN_PASSWORD=change-me npm start
+```
+
 ## API endpoints
 
 - `GET /api/users` - get all users sorted by points
 - `GET /api/users/:code` - get a single user by code
 - `GET /api/users/:code/approved-requests` - get a user plus their approved request history
 - `GET /api/quests` - get all active quests
+- `GET /api/badges/:id/network` - get graph data (nodes + edges) for one badge-sharing network
 - `POST /api/users` - create a user with a unique `name` and unique `code`
 - `POST /api/quests` - create a quest with `{ "title": "Tedenski izziv", "rewardPoints": 5, "steps": ["Korak 1"] }`
 - `POST /api/requests` - submit a point request with `code`, `points`, and optional `reason`
@@ -84,6 +103,12 @@ skorbord/
 - `POST /api/requests/:id/reject` - reject a request
 - `POST /api/users/:code/points` - manually add points by code with `{ "points": 5 }`
 - `POST /api/users/by-name/points` - manually add points by exact user name with `{ "name": "Alex", "points": 5, "reason": "Won bonus round" }`
+- `POST /api/admin/login` - admin login with `{ "username": "admin", "password": "..." }`
+- `POST /api/admin/setup` - first-time admin password setup with `{ "username": "admin", "password": "..." }`
+- `GET /api/admin/session` - verify current admin token
+- `POST /api/admin/logout` - revoke current admin token
+
+Admin-only endpoints require `Authorization: Bearer <token>`.
 
 ## Notes
 

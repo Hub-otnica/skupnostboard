@@ -1,4 +1,18 @@
 const createUserForm = document.getElementById("create-user-form");
+const adminLoginCard = document.getElementById("admin-login-card");
+const adminSessionCard = document.getElementById("admin-session-card");
+const adminDashboard = document.getElementById("admin-dashboard");
+const adminSetupPanel = document.getElementById("admin-setup-panel");
+const adminLoginPanel = document.getElementById("admin-login-panel");
+const adminSetupForm = document.getElementById("admin-setup-form");
+const adminSetupMessage = document.getElementById("admin-setup-message");
+const adminSetupUsername = document.getElementById("admin-setup-username");
+const adminLoginForm = document.getElementById("admin-login-form");
+const adminLogoutButton = document.getElementById("admin-logout-button");
+const adminLoginMessage = document.getElementById("admin-login-message");
+const adminSessionMessage = document.getElementById("admin-session-message");
+const adminSessionSummary = document.getElementById("admin-session-summary");
+const adminLoginUsername = document.getElementById("admin-login-username");
 const editUserForm = document.getElementById("edit-user-form");
 const manualPointsForm = document.getElementById("manual-points-form");
 const meetingForm = document.getElementById("meeting-form");
@@ -42,8 +56,85 @@ const editBadgeLevelDescriptionsContainer = document.getElementById("edit-badge-
 const addEditBadgeLevelButton = document.getElementById("add-edit-badge-level");
 const tabButtons = document.querySelectorAll(".tab-button");
 const tabPanels = document.querySelectorAll(".tab-panel");
+const ADMIN_TOKEN_STORAGE_KEY = "skorbord_admin_token";
 let usersState = [];
 let badgesState = [];
+let adminToken = "";
+let adminSetupRequired = false;
+
+function getAdminAuthHeaders(headers = {}) {
+  return adminToken
+    ? { ...headers, Authorization: `Bearer ${adminToken}` }
+    : headers;
+}
+
+async function adminApiFetch(path, options = {}) {
+  try {
+    return await apiFetch(path, {
+      ...options,
+      headers: getAdminAuthHeaders(options.headers || {})
+    });
+  } catch (error) {
+    if (String(error.message || "").includes("administratorska prijava")) {
+      setLoggedOutState("Seja je potekla. Prosim, prijavi se znova.");
+    }
+    throw error;
+  }
+}
+
+async function adminFetch(path, options = {}) {
+  return fetch(path, {
+    ...options,
+    headers: getAdminAuthHeaders(options.headers || {})
+  });
+}
+
+function setAuthenticatedState(username) {
+  adminLoginCard.hidden = true;
+  adminSessionCard.hidden = false;
+  adminDashboard.hidden = false;
+  adminSessionSummary.textContent = `Prijavljen kot ${username}.`;
+  clearMessage(adminLoginMessage);
+  clearMessage(adminSetupMessage);
+}
+
+function syncAuthPanels() {
+  adminSetupPanel.hidden = !adminSetupRequired;
+  adminLoginPanel.hidden = adminSetupRequired;
+}
+
+function setLoggedOutState(message = "") {
+  adminToken = "";
+  window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+  adminLoginCard.hidden = false;
+  adminSessionCard.hidden = true;
+  adminDashboard.hidden = true;
+  adminSessionSummary.textContent = "";
+  clearMessage(adminSessionMessage);
+  syncAuthPanels();
+  if (message) {
+    if (adminSetupRequired) {
+      setMessage(adminSetupMessage, message, "error");
+    } else {
+      setMessage(adminLoginMessage, message, "error");
+    }
+  } else {
+    clearMessage(adminLoginMessage);
+    clearMessage(adminSetupMessage);
+  }
+}
+
+async function parseResponseOrThrow(response) {
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(data.error || "Prišlo je do napake.");
+    if (String(error.message || "").includes("administratorska prijava")) {
+      setLoggedOutState("Seja je potekla. Prosim, prijavi se znova.");
+    }
+    throw error;
+  }
+  return data;
+}
 
 function formatDateTime(value) {
   if (!value) {
@@ -301,7 +392,7 @@ async function loadBadgeLineage() {
   badgeLineageContainer.innerHTML = '<p class="muted">Nalagam verigo značke ...</p>';
 
   try {
-    const lineage = await apiFetch(`/api/badges/${badgeId}/chains`);
+    const lineage = await adminApiFetch(`/api/badges/${badgeId}/chains`);
     renderBadgeLineage(lineage);
   } catch (error) {
     badgeLineageContainer.innerHTML = `<p class="message visible error">${error.message}</p>`;
@@ -389,7 +480,7 @@ function renderEvents(events) {
 
 async function loadEvents() {
   try {
-    const events = await apiFetch("/api/events");
+    const events = await adminApiFetch("/api/events");
     renderEvents(events);
   } catch (error) {
     eventsList.innerHTML = `<p class="message visible error">${error.message}</p>`;
@@ -399,7 +490,7 @@ async function loadEvents() {
 async function loadBadges() {
   try {
     const previousEditBadgeId = editBadgeSelect.value;
-    const badges = await apiFetch("/api/badges");
+    const badges = await adminApiFetch("/api/badges");
     renderBadges(badges);
     const selectedBadge = badges.find((badge) => String(badge.id) === previousEditBadgeId) || badges[0];
 
@@ -503,7 +594,7 @@ function renderMeetingMembers(users) {
 async function loadMeetingMembers() {
   try {
     const previousUserCode = editUserSelect.value;
-    const users = await apiFetch("/api/users");
+    const users = await adminApiFetch("/api/users");
     renderMeetingMembers(users);
     const selectedUser = users.find((user) => user.code === previousUserCode) || users[0];
 
@@ -552,7 +643,7 @@ function renderPendingRequest(request) {
 
 async function loadPendingRequests() {
   try {
-    const requests = await apiFetch("/api/requests/pending");
+    const requests = await adminApiFetch("/api/requests/pending");
 
     if (requests.length === 0) {
       pendingRequestsContainer.innerHTML = '<p class="muted">Trenutno ni čakajočih zahtevkov.</p>';
@@ -576,7 +667,7 @@ createUserForm.addEventListener("submit", async (event) => {
   };
 
   try {
-    const user = await apiFetch("/api/users", {
+    const user = await adminApiFetch("/api/users", {
       method: "POST",
       body: JSON.stringify(payload)
     });
@@ -599,7 +690,7 @@ editUserForm.addEventListener("submit", async (event) => {
   const code = String(formData.get("code") || "").trim();
 
   try {
-    const user = await apiFetch(`/api/users/${encodeURIComponent(currentCode)}`, {
+    const user = await adminApiFetch(`/api/users/${encodeURIComponent(currentCode)}`, {
       method: "PUT",
       body: JSON.stringify({ name, code })
     });
@@ -622,7 +713,7 @@ manualPointsForm.addEventListener("submit", async (event) => {
   const reason = String(formData.get("reason") || "").trim();
 
   try {
-    const user = await apiFetch("/api/users/by-name/points", {
+    const user = await adminApiFetch("/api/users/by-name/points", {
       method: "POST",
       body: JSON.stringify({ name, points, reason })
     });
@@ -643,7 +734,7 @@ meetingForm.addEventListener("submit", async (event) => {
   const note = String(formData.get("note") || "").trim();
 
   try {
-    const result = await apiFetch("/api/meetings", {
+    const result = await adminApiFetch("/api/meetings", {
       method: "POST",
       body: JSON.stringify({ presentCodes, note })
     });
@@ -671,7 +762,7 @@ questForm.addEventListener("submit", async (event) => {
   const steps = formData.getAll("questStep").map((step) => String(step || "").trim()).filter(Boolean);
 
   try {
-    const quest = await apiFetch("/api/quests", {
+    const quest = await adminApiFetch("/api/quests", {
       method: "POST",
       body: JSON.stringify({ title, rewardPoints, requiredPlayers, steps })
     });
@@ -697,7 +788,7 @@ eventForm.addEventListener("submit", async (event) => {
   const penaltyPoints = Number(formData.get("penaltyPoints"));
 
   try {
-    const createdEvent = await apiFetch("/api/events", {
+    const createdEvent = await adminApiFetch("/api/events", {
       method: "POST",
       body: JSON.stringify({
         title,
@@ -744,15 +835,11 @@ badgeForm.addEventListener("submit", async (event) => {
       uploadData.append("levelDescriptions", entry);
     });
 
-    const response = await fetch("/api/badges", {
+    const response = await adminFetch("/api/badges", {
       method: "POST",
       body: uploadData
     });
-    const badge = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      throw new Error(badge.error || "Prišlo je do napake.");
-    }
+    const badge = await parseResponseOrThrow(response);
 
     resetBadgeForm();
     setMessage(badgeMessage, `Značka "${badge.name}" je bila ustvarjena.`, "success");
@@ -792,15 +879,11 @@ editBadgeForm.addEventListener("submit", async (event) => {
       uploadData.append("levelDescriptions", entry);
     });
 
-    const response = await fetch(`/api/badges/${badgeId}`, {
+    const response = await adminFetch(`/api/badges/${badgeId}`, {
       method: "PUT",
       body: uploadData
     });
-    const badge = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      throw new Error(badge.error || "Prišlo je do napake.");
-    }
+    const badge = await parseResponseOrThrow(response);
 
     setMessage(editBadgeMessage, `Značka "${badge.name}" je bila posodobljena.`, "success");
     await loadBadges();
@@ -820,7 +903,7 @@ assignBadgeForm.addEventListener("submit", async (event) => {
   const level = Number(formData.get("level"));
 
   try {
-    const user = await apiFetch("/api/badges/assign", {
+    const user = await adminApiFetch("/api/badges/assign", {
       method: "POST",
       body: JSON.stringify({ name, badgeId, level })
     });
@@ -933,7 +1016,7 @@ pendingRequestsContainer.addEventListener("click", async (event) => {
   const action = button.dataset.action;
 
   try {
-    await apiFetch(`/api/requests/${requestId}/${action}`, {
+    await adminApiFetch(`/api/requests/${requestId}/${action}`, {
       method: "POST"
     });
     await loadPendingRequests();
@@ -950,11 +1033,133 @@ tabButtons.forEach((button) => {
   });
 });
 
-resetQuestForm();
-resetBadgeForm();
-resetEditBadgeForm();
-resetEditUserForm();
-loadPendingRequests();
-loadMeetingMembers();
-loadBadges();
-loadEvents();
+adminLoginForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearMessage(adminLoginMessage);
+
+  const formData = new FormData(adminLoginForm);
+  const username = String(formData.get("username") || "").trim();
+  const password = String(formData.get("password") || "");
+
+  try {
+    const session = await apiFetch("/api/admin/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password })
+    });
+
+    adminToken = String(session.token || "");
+    window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, adminToken);
+    adminLoginForm.reset();
+    adminLoginUsername.value = String(session.username || username);
+    setAuthenticatedState(session.username || username);
+    await initializeDashboard();
+  } catch (error) {
+    setMessage(adminLoginMessage, error.message, "error");
+  }
+});
+
+adminSetupForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearMessage(adminSetupMessage);
+
+  const formData = new FormData(adminSetupForm);
+  const username = String(formData.get("username") || "").trim();
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
+
+  if (password !== confirmPassword) {
+    setMessage(adminSetupMessage, "Gesli se ne ujemata.", "error");
+    return;
+  }
+
+  try {
+    const session = await apiFetch("/api/admin/setup", {
+      method: "POST",
+      body: JSON.stringify({ username, password })
+    });
+
+    adminToken = String(session.token || "");
+    adminSetupRequired = false;
+    window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, adminToken);
+    adminSetupForm.reset();
+    adminSetupUsername.value = String(session.username || username);
+    adminLoginUsername.value = String(session.username || username);
+    setAuthenticatedState(session.username || username);
+    await initializeDashboard();
+  } catch (error) {
+    setMessage(adminSetupMessage, error.message, "error");
+  }
+});
+
+adminLogoutButton.addEventListener("click", async () => {
+  clearMessage(adminSessionMessage);
+  try {
+    await adminApiFetch("/api/admin/logout", {
+      method: "POST"
+    });
+  } catch (error) {
+    setMessage(adminSessionMessage, error.message, "error");
+  } finally {
+    setLoggedOutState("Odjavljen si iz administratorskega računa.");
+  }
+});
+
+async function initializeDashboard() {
+  resetQuestForm();
+  resetBadgeForm();
+  resetEditBadgeForm();
+  resetEditUserForm();
+  await Promise.all([
+    loadPendingRequests(),
+    loadMeetingMembers(),
+    loadBadges(),
+    loadEvents()
+  ]);
+}
+
+async function initializeLoginDefaults() {
+  try {
+    const config = await apiFetch("/api/admin/config");
+    adminSetupRequired = Boolean(config.setupRequired);
+    if (config.username) {
+      adminLoginUsername.value = String(config.username);
+      adminSetupUsername.value = String(config.username);
+    }
+  } catch (_error) {
+    adminLoginUsername.value = "admin";
+    adminSetupUsername.value = "admin";
+    adminSetupRequired = false;
+  }
+  syncAuthPanels();
+}
+
+async function restoreExistingSession() {
+  if (adminSetupRequired) {
+    setLoggedOutState("Najprej nastavi administratorsko geslo.");
+    return;
+  }
+
+  const storedToken = window.localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY);
+
+  if (!storedToken) {
+    setLoggedOutState();
+    return;
+  }
+
+  adminToken = storedToken;
+
+  try {
+    const session = await adminApiFetch("/api/admin/session");
+    setAuthenticatedState(session.username || "admin");
+    await initializeDashboard();
+  } catch (_error) {
+    setLoggedOutState("Prejšnja seja ni več veljavna. Prijavi se znova.");
+  }
+}
+
+async function initializeAdminPage() {
+  await initializeLoginDefaults();
+  await restoreExistingSession();
+}
+
+initializeAdminPage();

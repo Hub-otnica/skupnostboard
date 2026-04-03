@@ -208,6 +208,37 @@ function renderSelectedBadgeHolders() {
       .map((holder) => `<option value="${escapeHtml(holder.code)}">${escapeHtml(holder.name)} - nivo ${holder.level || 1}</option>`)
       .join("")}
   `;
+
+  badgeHoldersContainer.innerHTML = '<p class="muted">Izberi mentorski profil, da vidiš podrobnosti.</p>';
+}
+
+function renderSelectedBadgeHolderDetails() {
+  const selectedBadgeId = Number(badgeShareSelect.value);
+  const selectedHolderCode = String(badgeHolderSelect.value || "").trim();
+  const badge = badgeShareOptions.find((entry) => entry.id === selectedBadgeId);
+
+  if (!badge) {
+    badgeHoldersContainer.innerHTML = '<p class="muted">Najprej izberi značko.</p>';
+    return;
+  }
+
+  if (!selectedHolderCode) {
+    badgeHoldersContainer.innerHTML = '<p class="muted">Izberi mentorski profil, da vidiš podrobnosti.</p>';
+    return;
+  }
+
+  const holder = (badge.holders || []).find((entry) => entry.code === selectedHolderCode);
+
+  if (!holder) {
+    badgeHoldersContainer.innerHTML = '<p class="muted">Izbrani mentorski profil ni na voljo.</p>';
+    return;
+  }
+
+  badgeHoldersContainer.innerHTML = `
+    <div class="quest-mini-item">
+      ${escapeHtml(holder.name)} <strong>(nivo ${holder.level || 1})</strong>
+    </div>
+  `;
 }
 
 function renderIncomingBadgeRequests(requests) {
@@ -317,7 +348,7 @@ lookupForm.addEventListener("submit", async (event) => {
     currentUser = user;
     renderUser(user);
     document.getElementById("request-code").value = user.code;
-    setMessage(lookupMessage, `Naložene so trenutne točke mentorice/mentorja ${user.name}.`, "success");
+    setMessage(lookupMessage, `Naložene so trenutne točke za mentorski profil ${user.name}.`, "success");
     await Promise.all([loadQuests(), loadBadgeShareOptions(), loadIncomingBadgeRequests()]);
   } catch (error) {
     hideUserState();
@@ -387,6 +418,11 @@ badgeShareForm.addEventListener("submit", async (event) => {
 badgeShareSelect.addEventListener("change", () => {
   clearMessage(badgeShareMessage);
   renderSelectedBadgeHolders();
+});
+
+badgeHolderSelect.addEventListener("change", () => {
+  clearMessage(badgeShareMessage);
+  renderSelectedBadgeHolderDetails();
 });
 
 questsList.addEventListener("click", (event) => {

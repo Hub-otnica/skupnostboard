@@ -1,9 +1,11 @@
 async function apiFetch(path, options = {}) {
+  const customHeaders = options.headers || {};
   const response = await fetch(path, {
+    ...options,
     headers: {
-      "Content-Type": "application/json"
-    },
-    ...options
+      "Content-Type": "application/json",
+      ...customHeaders
+    }
   });
 
   const data = await response.json().catch(() => ({}));

@@ -27,7 +27,13 @@ const defaultData = {
   events: [],
   badges: [],
   badgeTransfers: [],
-  forumMessages: []
+  forumMessages: [],
+  adminAuth: {
+    username: "admin",
+    passwordHash: "",
+    passwordSalt: "",
+    passwordUpdatedAt: ""
+  }
 };
 
 function ensureDataFile() {
@@ -76,6 +82,17 @@ function readData() {
   if (!Array.isArray(data.forumMessages)) {
     data.forumMessages = [];
   }
+
+  if (!data.adminAuth || typeof data.adminAuth !== "object") {
+    data.adminAuth = {};
+  }
+
+  data.adminAuth = {
+    username: String(data.adminAuth.username || "admin").trim() || "admin",
+    passwordHash: String(data.adminAuth.passwordHash || "").trim(),
+    passwordSalt: String(data.adminAuth.passwordSalt || "").trim(),
+    passwordUpdatedAt: String(data.adminAuth.passwordUpdatedAt || "").trim()
+  };
 
   data.users = data.users.map((user) => ({
     ...user,

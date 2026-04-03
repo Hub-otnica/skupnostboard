@@ -1267,6 +1267,64 @@ function getBadgeChainsByBadgeId(badgeId) {
   };
 }
 
+function getBadgeNetworkByBadgeId(badgeId) {
+  const data = readDataWithProcessedEvents();
+  const badge = getBadgeRecordById(badgeId, data);
+  const transfers = (Array.isArray(data.badgeTransfers) ? data.badgeTransfers : [])
+    .filter((entry) => entry.badgeId === badge.id)
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  const usersByCode = new Map(
+    data.users.map((user) => [
+      String(user.code || "").trim().toUpperCase(),
+      String(user.name || "").trim() || "Neznana mentorica/neznan mentor"
+    ])
+  );
+  const nodesByCode = new Map();
+  const edges = [];
+
+  transfers.forEach((transfer) => {
+    const toCode = String(transfer.toUserCode || "").trim().toUpperCase();
+    const fromCode = String(transfer.fromUserCode || "").trim().toUpperCase();
+
+    if (toCode && !nodesByCode.has(toCode)) {
+      nodesByCode.set(toCode, {
+        id: toCode,
+        name: transfer.toUserName || usersByCode.get(toCode) || toCode,
+        code: toCode,
+        root: !fromCode
+      });
+    }
+
+    if (fromCode && !nodesByCode.has(fromCode)) {
+      nodesByCode.set(fromCode, {
+        id: fromCode,
+        name: transfer.fromUserName || usersByCode.get(fromCode) || fromCode,
+        code: fromCode,
+        root: false
+      });
+    }
+
+    if (fromCode && toCode) {
+      edges.push({
+        from: fromCode,
+        to: toCode,
+        createdAt: transfer.createdAt
+      });
+    }
+  });
+
+  return {
+    badge: {
+      id: badge.id,
+      name: badge.name,
+      description: badge.description || "",
+      requirements: badge.requirements || ""
+    },
+    nodes: Array.from(nodesByCode.values()),
+    edges
+  };
+}
+
 function joinQuest(payload) {
   const data = readData();
   const user = getUserRecordByCode(payload.code, data);
@@ -1537,6 +1595,7 @@ module.exports = {
   getAvailableQuests,
   getAvailableQuestsForUser,
   getBadges,
+  getBadgeNetworkByBadgeId,
   getBadgeShareOptionsForUser,
   getBadgeChainsByBadgeId,
   getBadgeChainsByUserCode,

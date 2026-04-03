@@ -13,7 +13,7 @@
         <nav class="nav">
           <a href="/">Lestvica</a>
           <a href="/forum">Forum</a>
-          <a href="/user">Mentorica/Mentor</a>
+          <a href="/user">Mentorska stran</a>
           <a href="/admin">Admin</a>
         </nav>
       </div>
@@ -25,7 +25,55 @@
         <p class="muted">Upravljaj mentorice/mentorje, pregleduj zahtevke in urejaj aktivnosti skupnosti.</p>
       </section>
 
-      <section class="card">
+      <section class="card" id="admin-login-card">
+        <div id="admin-setup-panel" hidden>
+          <h3>Prva Admin Nastavitev</h3>
+          <form id="admin-setup-form">
+            <label>
+              Uporabniško ime
+              <input name="username" id="admin-setup-username" type="text" autocomplete="username" required />
+            </label>
+            <label>
+              Novo geslo
+              <input name="password" type="password" autocomplete="new-password" minlength="6" required />
+            </label>
+            <label>
+              Potrdi geslo
+              <input name="confirmPassword" type="password" autocomplete="new-password" minlength="6" required />
+            </label>
+            <button type="submit">Nastavi Admin Geslo</button>
+          </form>
+          <p class="muted">To se prikaže samo prvič. Po nastavitvi bo možna običajna prijava.</p>
+          <div id="admin-setup-message" class="message"></div>
+        </div>
+
+        <div id="admin-login-panel">
+          <h3>Admin Prijava</h3>
+          <form id="admin-login-form">
+            <label>
+              Uporabniško ime
+              <input name="username" id="admin-login-username" type="text" autocomplete="username" required />
+            </label>
+            <label>
+              Geslo
+              <input name="password" type="password" autocomplete="current-password" required />
+            </label>
+            <button type="submit">Prijava</button>
+          </form>
+          <p class="muted">Dostop do administratorskih orodij je zaščiten s prijavo.</p>
+          <div id="admin-login-message" class="message"></div>
+        </div>
+      </section>
+
+      <section class="card" id="admin-session-card" hidden>
+        <div class="inline-actions" style="justify-content: space-between; align-items: center;">
+          <p id="admin-session-summary" style="margin: 0;"></p>
+          <button id="admin-logout-button" class="secondary" type="button">Odjava</button>
+        </div>
+        <div id="admin-session-message" class="message"></div>
+      </section>
+
+      <section class="card" id="admin-dashboard" hidden>
         <div class="tab-bar" role="tablist" aria-label="Admin funkcije">
           <button class="tab-button active" id="tab-button-mentors" type="button" data-tab-target="mentors-panel" aria-selected="true">Mentorice/Mentorji</button>
           <button class="tab-button" id="tab-button-quests" type="button" data-tab-target="quests-panel" aria-selected="false">Questi</button>

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mentorica/Mentor</title>
+    <title>Mentorska Stran</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -13,7 +13,7 @@
         <nav class="nav">
           <a href="/">Lestvica</a>
           <a href="/forum">Forum</a>
-          <a href="/user">Mentorica/Mentor</a>
+          <a href="/user">Mentorska stran</a>
           <a href="/admin">Admin</a>
         </nav>
       </div>
@@ -21,23 +21,37 @@
 
     <main class="container">
       <section class="hero">
-        <h2>Konzola Mentorice/Mentorja</h2>
+        <h2>Mentoričina/Mentorjeva Konzola</h2>
         <p class="muted">Vnesi svojo kodo za ogled rezultata, oddajo zahtevkov in prijavo na aktivne queste.</p>
+      </section>
+
+      <section class="card mentor-help-card">
+        <details>
+          <summary>Hitra navodila za uporabo</summary>
+          <ul>
+            <li>Vpiši svojo kodo na tej strani in odpri svoje podatke.</li>
+            <li>Točke oddaš kot zahtevek, admin pa ga potrdi ali zavrne.</li>
+            <li>Pri questih se najprej prijavi, nato oddaj zaključene korake.</li>
+            <li>V zavihku Značke lahko zaprosiš za deljenje in potrjuješ prejete prošnje.</li>
+            <li>Na domači strani spremljaj Dogodke, ker vplivajo na točke skupnosti.</li>
+          </ul>
+          <p class="muted" style="margin: 0;">Podrobnejša navodila: <code>NAVODILA_MENTORJI.md</code></p>
+        </details>
       </section>
 
       <section class="grid">
         <div class="card">
-          <h3>Poišči Mentorico/Mentorja</h3>
+          <h3>Poišči Mentorja/Mentorico</h3>
           <form id="lookup-form">
             <label>
-              Koda mentorice/mentorja
+              Mentorska koda
               <input id="lookup-code" name="code" type="text" placeholder="Vnesi kodo" required />
             </label>
             <button type="submit">Vpis</button>
           </form>
           <div id="lookup-message" class="message"></div>
           <div id="user-summary" class="card" hidden>
-            <h3 id="user-name">Mentorica/Mentor</h3>
+            <h3 id="user-name">Mentor/Mentorica</h3>
             <p>Trenutne točke: <strong id="user-points">0</strong></p>
             <p>Sestanki: <strong id="user-attendance">0</strong></p>
           </div>
@@ -55,7 +69,7 @@
           <h3>Zahtevaj Točke</h3>
           <form id="request-form">
             <label>
-              Koda mentorice/mentorja
+              Mentorska koda
               <input id="request-code" name="code" type="text" placeholder="Ista koda" required />
             </label>
             <label>
@@ -116,9 +130,9 @@
                   <p class="muted">Izberi značko, da vidiš kdo jo ima.</p>
                 </div>
                 <label>
-                  Izberi mentorico/mentorja
+                  Izberi mentorja/mentorico
                   <select id="badge-holder-select" name="targetCode" required>
-                    <option value="">Izberi mentorico/mentorja</option>
+                    <option value="">Izberi mentorja/mentorico</option>
                   </select>
                 </label>
                 <button type="submit">Pošlji prošnjo za deljenje značke</button>

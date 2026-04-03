@@ -3,6 +3,16 @@ const fs = require("fs");
 const path = require("path");
 const multer = require("multer");
 const {
+  createAdminSession,
+  extractBearerToken,
+  getAdminSession,
+  getConfiguredUsername,
+  isAdminSetupRequired,
+  isValidAdminCredentials,
+  setupAdminCredentials,
+  revokeAdminSession
+} = require("../services/adminAuthService");
+const {
   createUser,
   updateUserByCode,
   addPointsToUser,
@@ -21,6 +31,7 @@ const {
   getAvailableQuests,
   getAvailableQuestsForUser,
   getBadges,
+  getBadgeNetworkByBadgeId,
   getBadgeChainsByBadgeId,
   getBadgeChainsByUserCode,
   getBadgeShareOptionsForUser,
@@ -37,6 +48,20 @@ const {
 
 const router = express.Router();
 const badgesUploadDir = path.join(__dirname, "..", "..", "public", "uploads", "badges");
+
+function requireAdminAuth(req, _res, next) {
+  const token = extractBearerToken(req.get("authorization"));
+  const session = getAdminSession(token);
+
+  if (!session) {
+    const error = new Error("Za to dejanje je potrebna administratorska prijava.");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  req.adminSession = session;
+  next();
+}
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
@@ -110,35 +135,98 @@ router.get("/badges", (_req, res) => {
   res.json(getBadges());
 });
 
-router.get("/badges/:id/chains", (req, res) => {
+router.get("/badges/:id/chains", requireAdminAuth, (req, res) => {
   res.json(getBadgeChainsByBadgeId(req.params.id));
+});
+
+router.get("/badges/:id/network", (req, res) => {
+  res.json(getBadgeNetworkByBadgeId(req.params.id));
 });
 
 router.get("/forum-messages", (_req, res) => {
   res.json(getForumMessages());
 });
 
-router.post("/users", (req, res) => {
+router.post("/admin/login", (req, res) => {
+  const username = String(req.body.username || "").trim();
+  const password = String(req.body.password || "");
+
+  if (isAdminSetupRequired()) {
+    const error = new Error("Najprej nastavi administratorsko geslo.");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  if (!isValidAdminCredentials(username, password)) {
+    const error = new Error("Napačno administratorsko uporabniško ime ali geslo.");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const resolvedUsername = getConfiguredUsername();
+  const session = createAdminSession(resolvedUsername);
+
+  res.status(201).json({
+    token: session.token,
+    username: resolvedUsername,
+    expiresAt: session.expiresAt
+  });
+});
+
+router.post("/admin/setup", (req, res) => {
+  const username = String(req.body.username || "").trim();
+  const password = String(req.body.password || "");
+  const configuredAdmin = setupAdminCredentials(username, password);
+  const session = createAdminSession(configuredAdmin.username);
+
+  res.status(201).json({
+    token: session.token,
+    username: configuredAdmin.username,
+    expiresAt: session.expiresAt
+  });
+});
+
+router.get("/admin/session", requireAdminAuth, (req, res) => {
+  res.json({
+    username: req.adminSession.username,
+    expiresAt: req.adminSession.expiresAt
+  });
+});
+
+router.post("/admin/logout", requireAdminAuth, (req, res) => {
+  const token = extractBearerToken(req.get("authorization"));
+  revokeAdminSession(token);
+  res.status(204).send();
+});
+
+router.get("/admin/config", (_req, res) => {
+  res.json({
+    username: getConfiguredUsername(),
+    setupRequired: isAdminSetupRequired()
+  });
+});
+
+router.post("/users", requireAdminAuth, (req, res) => {
   const user = createUser(req.body);
   res.status(201).json(user);
 });
 
-router.put("/users/:code", (req, res) => {
+router.put("/users/:code", requireAdminAuth, (req, res) => {
   const user = updateUserByCode(req.params.code, req.body);
   res.json(user);
 });
 
-router.post("/quests", (req, res) => {
+router.post("/quests", requireAdminAuth, (req, res) => {
   const quest = createQuest(req.body);
   res.status(201).json(quest);
 });
 
-router.post("/events", (req, res) => {
+router.post("/events", requireAdminAuth, (req, res) => {
   const event = createEvent(req.body);
   res.status(201).json(event);
 });
 
-router.post("/badges", upload.single("image"), (req, res) => {
+router.post("/badges", requireAdminAuth, upload.single("image"), (req, res) => {
   const badge = createBadge({
     name: req.body.name,
     requirements: req.body.requirements,
@@ -151,7 +239,7 @@ router.post("/badges", upload.single("image"), (req, res) => {
   res.status(201).json(badge);
 });
 
-router.put("/badges/:id", upload.single("image"), (req, res) => {
+router.put("/badges/:id", requireAdminAuth, upload.single("image"), (req, res) => {
   const badge = updateBadge(req.params.id, {
     name: req.body.name,
     requirements: req.body.requirements,
@@ -164,7 +252,7 @@ router.put("/badges/:id", upload.single("image"), (req, res) => {
   res.json(badge);
 });
 
-router.post("/badges/assign", (req, res) => {
+router.post("/badges/assign", requireAdminAuth, (req, res) => {
   const user = assignBadgeToUserByName(req.body.name, req.body.badgeId, req.body.level);
   res.json(user);
 });
@@ -199,26 +287,26 @@ router.post("/quest-requests", (req, res) => {
   res.status(201).json(request);
 });
 
-router.get("/requests/pending", (_req, res) => {
+router.get("/requests/pending", requireAdminAuth, (_req, res) => {
   res.json(getPendingRequests());
 });
 
-router.post("/meetings", (req, res) => {
+router.post("/meetings", requireAdminAuth, (req, res) => {
   const result = recordMeeting(req.body);
   res.status(201).json(result);
 });
 
-router.post("/requests/:id/approve", (req, res) => {
+router.post("/requests/:id/approve", requireAdminAuth, (req, res) => {
   const result = processRequest(req.params.id, "approved");
   res.json(result);
 });
 
-router.post("/requests/:id/reject", (req, res) => {
+router.post("/requests/:id/reject", requireAdminAuth, (req, res) => {
   const result = processRequest(req.params.id, "rejected");
   res.json(result);
 });
 
-router.post("/users/by-name/points", (req, res) => {
+router.post("/users/by-name/points", requireAdminAuth, (req, res) => {
   const user = addPointsToUserByName(req.body.name, req.body.points, req.body.reason);
   res.json(user);
 });

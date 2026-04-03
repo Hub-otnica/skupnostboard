@@ -13,7 +13,7 @@
         <nav class="nav">
           <a href="/">Lestvica</a>
           <a href="/forum">Forum</a>
-          <a href="/user">Mentorica/Mentor</a>
+          <a href="/user">Mentorska stran</a>
           <a href="/admin">Admin</a>
         </nav>
       </div>
@@ -59,6 +59,24 @@
         <h3>Dogodki</h3>
         <div id="events-list" class="quest-list" style="margin-top: 1rem;">
           <p class="muted">Nalaganje dogodkov ...</p>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top: 1rem;">
+        <div class="inline-actions" style="justify-content: space-between; align-items: center; gap: 1rem;">
+          <h3 style="margin: 0;">Mreža Deljenja Značk</h3>
+          <label style="margin: 0;">
+            <span class="muted">Izberi značko</span>
+            <select id="badge-network-select">
+              <option value="">Nalaganje značk ...</option>
+            </select>
+          </label>
+        </div>
+        <p class="muted">Vsaka točka predstavlja mentorico ali mentorja, povezave pa prikazujejo komu je bila značka deljena.</p>
+        <div id="badge-network-message" class="message"></div>
+        <div id="badge-network-summary" class="muted" style="margin-top: 0.5rem;"></div>
+        <div class="badge-network-canvas-wrap" style="margin-top: 1rem;">
+          <canvas id="badge-network-canvas" width="920" height="520" aria-label="Mreža deljenja izbrane značke"></canvas>
         </div>
       </section>
     </main>
