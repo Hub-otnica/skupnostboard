@@ -92,6 +92,7 @@
           <button class="tab-button active" id="tab-button-requests" type="button" data-tab-target="requests-panel" aria-selected="true">Točkovni zahtevki</button>
           <button class="tab-button" id="tab-button-quests" type="button" data-tab-target="quests-panel" aria-selected="false">Questi</button>
           <button class="tab-button" id="tab-button-badges" type="button" data-tab-target="badges-panel" aria-selected="false">Značke</button>
+          <button class="tab-button" id="tab-button-messages" type="button" data-tab-target="messages-panel" aria-selected="false">Sporočila</button>
         </div>
 
         <div class="tab-panel active" id="requests-panel" role="tabpanel" aria-labelledby="tab-button-requests">
@@ -171,6 +172,37 @@
                 <p class="muted">Ni prejetih prošenj.</p>
               </div>
               <div id="incoming-badge-message" class="message"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="messages-panel" role="tabpanel" aria-labelledby="tab-button-messages" hidden>
+          <div class="grid admin-message-grid">
+            <div class="card">
+              <h3>Pogovori</h3>
+              <p class="muted">Izberi admina ali mentorski profil, s katerim želiš klepetati.</p>
+              <div id="direct-message-thread-list" class="quest-list">
+                <p class="muted">Prijavi se, da vidiš pogovore.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="inline-actions" style="justify-content: space-between; align-items: center;">
+                <h3 id="direct-message-thread-title" style="margin: 0;">Pogovor</h3>
+                <button id="refresh-direct-messages" class="secondary" type="button">Osveži</button>
+              </div>
+              <p id="direct-message-thread-description" class="muted">Izberi pogovor na levi, da vidiš sporočila.</p>
+              <div id="direct-messages" class="direct-message-thread" style="margin-top: 1rem;">
+                <p class="muted">Prijavi se, da vidiš pogovore.</p>
+              </div>
+              <form id="direct-message-form" style="margin-top: 1rem;">
+                <label>
+                  Novo sporočilo
+                  <textarea id="direct-message-input" name="content" placeholder="Napiši kratko vprašanje ali obvestilo" required></textarea>
+                </label>
+                <button type="submit">Pošlji sporočilo</button>
+              </form>
+              <div id="direct-message-status" class="message"></div>
             </div>
           </div>
         </div>

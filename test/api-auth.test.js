@@ -262,6 +262,225 @@ test("admin cannot create duplicate usernames", async (t) => {
   assert.match(duplicateUser.body.error, /ime je že v uporabi/i);
 });
 
+test("admin and mentor can exchange direct messages", async (t) => {
+  const { baseUrl } = await createTestServer(t);
+
+  const adminSetup = await requestJson(baseUrl, "/api/admin/setup", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      username: "admin",
+      password: "secret123"
+    })
+  });
+
+  assert.equal(adminSetup.response.status, 201);
+
+  const createdUser = await requestJson(baseUrl, "/api/users", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: adminSetup.cookie
+    },
+    body: JSON.stringify({
+      name: "Mentor Chat",
+      password: "temp-pass-1"
+    })
+  });
+
+  assert.equal(createdUser.response.status, 201);
+
+  setUserPasswordById(createdUser.body.id, "mentor-pass");
+
+  const userLogin = await requestJson(baseUrl, "/api/auth/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      username: "Mentor Chat",
+      password: "mentor-pass"
+    })
+  });
+
+  assert.equal(userLogin.response.status, 201);
+
+  const mentorMessage = await requestJson(baseUrl, "/api/me/direct-messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: userLogin.cookie
+    },
+    body: JSON.stringify({
+      content: "Pozdrav admin, imam vprasanje."
+    })
+  });
+
+  assert.equal(mentorMessage.response.status, 201);
+  assert.equal(mentorMessage.body.senderType, "user");
+  assert.equal(mentorMessage.body.senderCode, createdUser.body.code);
+  assert.equal(mentorMessage.body.recipientType, "admin");
+
+  const adminThreads = await requestJson(baseUrl, "/api/admin/direct-messages", {
+    headers: {
+      Cookie: adminSetup.cookie
+    }
+  });
+
+  assert.equal(adminThreads.response.status, 200);
+  assert.ok(adminThreads.body.length >= 1);
+  assert.equal(adminThreads.body[0].userCode, createdUser.body.code);
+  assert.equal(adminThreads.body[0].lastMessagePreview, "Pozdrav admin, imam vprasanje.");
+
+  const adminConversation = await requestJson(baseUrl, `/api/admin/direct-messages/${createdUser.body.code}`, {
+    headers: {
+      Cookie: adminSetup.cookie
+    }
+  });
+
+  assert.equal(adminConversation.response.status, 200);
+  assert.equal(adminConversation.body.messages.length, 1);
+  assert.equal(adminConversation.body.messages[0].content, "Pozdrav admin, imam vprasanje.");
+
+  const adminReply = await requestJson(baseUrl, "/api/admin/direct-messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: adminSetup.cookie
+    },
+    body: JSON.stringify({
+      targetCode: createdUser.body.code,
+      content: "Zivjo, tukaj admin."
+    })
+  });
+
+  assert.equal(adminReply.response.status, 201);
+  assert.equal(adminReply.body.senderType, "admin");
+
+  const mentorConversation = await requestJson(baseUrl, "/api/me/direct-messages", {
+    headers: {
+      Cookie: userLogin.cookie
+    }
+  });
+
+  assert.equal(mentorConversation.response.status, 200);
+  assert.equal(mentorConversation.body.target.type, "admin");
+  assert.equal(mentorConversation.body.messages.length, 2);
+  assert.equal(mentorConversation.body.messages[1].content, "Zivjo, tukaj admin.");
+  assert.equal(mentorConversation.body.messages[1].isFromAdmin, true);
+});
+
+test("mentors can exchange direct messages with each other", async (t) => {
+  const { baseUrl } = await createTestServer(t, {
+    users: [
+      {
+        id: 1,
+        name: "Alice",
+        code: "ALICE",
+        points: 0,
+        attendance: 0,
+        userBadges: [],
+        badgeIds: []
+      },
+      {
+        id: 2,
+        name: "Bob",
+        code: "BOB",
+        points: 0,
+        attendance: 0,
+        userBadges: [],
+        badgeIds: []
+      }
+    ],
+    requests: [],
+    meetings: [],
+    quests: [],
+    events: [],
+    badges: [],
+    badgeTransfers: [],
+    directMessages: [],
+    forumMessages: [],
+    userAuth: [],
+    adminAuth: {
+      username: "admin",
+      passwordHash: "",
+      passwordSalt: "",
+      passwordUpdatedAt: ""
+    }
+  });
+
+  setUserPasswordById(1, "alice-pass");
+  setUserPasswordById(2, "bob-pass");
+
+  const aliceLogin = await requestJson(baseUrl, "/api/auth/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      username: "Alice",
+      password: "alice-pass"
+    })
+  });
+
+  const bobLogin = await requestJson(baseUrl, "/api/auth/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      username: "Bob",
+      password: "bob-pass"
+    })
+  });
+
+  assert.equal(aliceLogin.response.status, 201);
+  assert.equal(bobLogin.response.status, 201);
+
+  const aliceThreads = await requestJson(baseUrl, "/api/me/direct-message-threads", {
+    headers: {
+      Cookie: aliceLogin.cookie
+    }
+  });
+
+  assert.equal(aliceThreads.response.status, 200);
+  assert.equal(aliceThreads.body[0].targetType, "admin");
+  assert.equal(aliceThreads.body[1].targetCode, "BOB");
+
+  const mentorMessage = await requestJson(baseUrl, "/api/me/direct-messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: aliceLogin.cookie
+    },
+    body: JSON.stringify({
+      targetType: "user",
+      targetCode: "BOB",
+      content: "Zivjo Bob, kako si?"
+    })
+  });
+
+  assert.equal(mentorMessage.response.status, 201);
+  assert.equal(mentorMessage.body.senderType, "user");
+  assert.equal(mentorMessage.body.recipientType, "user");
+  assert.equal(mentorMessage.body.recipientCode, "BOB");
+
+  const bobConversation = await requestJson(baseUrl, "/api/me/direct-messages?targetType=user&targetCode=ALICE", {
+    headers: {
+      Cookie: bobLogin.cookie
+    }
+  });
+
+  assert.equal(bobConversation.response.status, 200);
+  assert.equal(bobConversation.body.target.code, "ALICE");
+  assert.equal(bobConversation.body.messages.length, 1);
+  assert.equal(bobConversation.body.messages[0].content, "Zivjo Bob, kako si?");
+  assert.equal(bobConversation.body.messages[0].senderCode, "ALICE");
+  assert.equal(bobConversation.body.messages[0].recipientCode, "BOB");
+});
+
 test("only the badge holder can approve a badge-share request", async (t) => {
   const { baseUrl } = await createTestServer(t, {
     users: [
@@ -314,6 +533,7 @@ test("only the badge holder can approve a badge-share request", async (t) => {
       }
     ],
     badgeTransfers: [],
+    directMessages: [],
     forumMessages: [],
     userAuth: [],
     adminAuth: {

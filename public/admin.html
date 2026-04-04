@@ -79,6 +79,7 @@
           <button class="tab-button" id="tab-button-quests" type="button" data-tab-target="quests-panel" aria-selected="false">Questi</button>
           <button class="tab-button" id="tab-button-badges" type="button" data-tab-target="badges-panel" aria-selected="false">Značke</button>
           <button class="tab-button" id="tab-button-meetings" type="button" data-tab-target="meetings-panel" aria-selected="false">Sestanki</button>
+          <button class="tab-button" id="tab-button-messages" type="button" data-tab-target="messages-panel" aria-selected="false">Sporočila</button>
         </div>
 
         <div class="tab-panel active" id="mentors-panel" role="tabpanel" aria-labelledby="tab-button-mentors">
@@ -385,6 +386,36 @@
                 <button type="submit">Zabeleži sestanek</button>
               </form>
               <div id="meeting-message" class="message"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="messages-panel" role="tabpanel" aria-labelledby="tab-button-messages" hidden>
+          <div class="grid admin-message-grid">
+            <div class="card">
+              <h3>Mentorice/Mentorji</h3>
+              <p class="muted">Izberi mentorski profil za pregled in pošiljanje neposrednih sporočil.</p>
+              <div id="admin-direct-thread-list" class="quest-list">
+                <p class="muted">Nalaganje sporočil ...</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="inline-actions" style="justify-content: space-between; align-items: center;">
+                <h3 id="admin-direct-thread-title" style="margin: 0;">Pogovor z mentorico/mentorjem</h3>
+                <button id="admin-refresh-direct-messages" class="secondary" type="button">Osveži</button>
+              </div>
+              <div id="admin-direct-thread" class="direct-message-thread" style="margin-top: 1rem;">
+                <p class="muted">Izberi mentorico/mentorja za prikaz pogovora.</p>
+              </div>
+              <form id="admin-direct-message-form" style="margin-top: 1rem;">
+                <label>
+                  Novo sporočilo
+                  <textarea name="content" placeholder="Napiši kratko sporočilo mentorici/mentorju" required></textarea>
+                </label>
+                <button type="submit">Pošlji sporočilo</button>
+              </form>
+              <div id="admin-direct-message-status" class="message"></div>
             </div>
           </div>
         </div>

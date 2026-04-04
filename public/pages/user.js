@@ -1,6 +1,7 @@
 const lookupForm = document.getElementById("lookup-form");
 const requestForm = document.getElementById("request-form");
 const badgeShareForm = document.getElementById("badge-share-form");
+const directMessageForm = document.getElementById("direct-message-form");
 const lookupMessage = document.getElementById("lookup-message");
 const passwordChangeForm = document.getElementById("password-change-form");
 const passwordChangeMessage = document.getElementById("password-change-message");
@@ -8,6 +9,7 @@ const requestMessage = document.getElementById("request-message");
 const questMessage = document.getElementById("quest-message");
 const badgeShareMessage = document.getElementById("badge-share-message");
 const incomingBadgeMessage = document.getElementById("incoming-badge-message");
+const directMessageStatus = document.getElementById("direct-message-status");
 const userLoginPanel = document.getElementById("user-login-panel");
 const passwordChangePanel = document.getElementById("password-change-panel");
 const userSummary = document.getElementById("user-summary");
@@ -21,6 +23,12 @@ const badgeHolderSelect = document.getElementById("badge-holder-select");
 const badgeRequirementsContainer = document.getElementById("badge-requirements");
 const badgeHoldersContainer = document.getElementById("badge-holders");
 const incomingBadgeRequestsContainer = document.getElementById("incoming-badge-requests");
+const directMessageThreadList = document.getElementById("direct-message-thread-list");
+const directMessageThreadTitle = document.getElementById("direct-message-thread-title");
+const directMessageThreadDescription = document.getElementById("direct-message-thread-description");
+const directMessagesContainer = document.getElementById("direct-messages");
+const refreshDirectMessagesButton = document.getElementById("refresh-direct-messages");
+const directMessageInput = document.getElementById("direct-message-input");
 const tabButtons = document.querySelectorAll(".tab-button");
 const tabPanels = document.querySelectorAll(".tab-panel");
 
@@ -28,6 +36,9 @@ let currentUser = null;
 let quests = [];
 let selectedQuestId = null;
 let badgeShareOptions = [];
+let directMessageThreads = [];
+let selectedDirectMessageTargetType = "admin";
+let selectedDirectMessageTargetCode = "";
 
 async function userApiFetch(path, options = {}) {
   try {
@@ -50,6 +61,11 @@ function renderLoggedOutPlaceholders() {
   badgeRequirementsContainer.innerHTML = '<p class="muted">Prijavi se, da vidiš značke, ki jih lahko pridobiš.</p>';
   badgeHoldersContainer.innerHTML = '<p class="muted">Prijavi se, da vidiš mentorice/mentorje z izbrano značko.</p>';
   incomingBadgeRequestsContainer.innerHTML = '<p class="muted">Prijavi se, da vidiš prejete prošnje.</p>';
+  directMessageThreadList.innerHTML = '<p class="muted">Prijavi se, da vidiš pogovore.</p>';
+  directMessageThreadTitle.textContent = "Pogovor";
+  directMessageThreadDescription.textContent = "Izberi pogovor na levi, da vidiš sporočila.";
+  directMessagesContainer.innerHTML = '<p class="muted">Prijavi se, da vidiš pogovore.</p>';
+  directMessageInput.placeholder = "Napiši kratko vprašanje ali obvestilo";
 }
 
 function renderBadgeCard(badge) {
@@ -110,6 +126,9 @@ function setLoggedOutState(message = "", type = "error") {
   quests = [];
   badgeShareOptions = [];
   selectedQuestId = null;
+  directMessageThreads = [];
+  selectedDirectMessageTargetType = "admin";
+  selectedDirectMessageTargetCode = "";
   userLoginPanel.hidden = false;
   passwordChangePanel.hidden = true;
   userSummary.hidden = true;
@@ -118,6 +137,7 @@ function setLoggedOutState(message = "", type = "error") {
   clearMessage(questMessage);
   clearMessage(badgeShareMessage);
   clearMessage(incomingBadgeMessage);
+  clearMessage(directMessageStatus);
   clearMessage(passwordChangeMessage);
   renderLoggedOutPlaceholders();
 
@@ -321,6 +341,81 @@ function renderIncomingBadgeRequests(requests) {
     .join("");
 }
 
+function getSelectedDirectMessageThread() {
+  return directMessageThreads.find(
+    (thread) =>
+      thread.targetType === selectedDirectMessageTargetType &&
+      String(thread.targetCode || "") === String(selectedDirectMessageTargetCode || "")
+  ) || null;
+}
+
+function renderDirectMessageThreadList(threads) {
+  directMessageThreads = threads;
+
+  if (!threads.length) {
+    directMessageThreadList.innerHTML = '<p class="muted">Trenutno ni drugih profilov za klepet.</p>';
+    directMessageThreadTitle.textContent = "Pogovor";
+    directMessageThreadDescription.textContent = "Ko bo ustvarjen še kak profil, bo tukaj prikazan seznam pogovorov.";
+    directMessagesContainer.innerHTML = '<p class="muted">Pogovor še ni na voljo.</p>';
+    directMessageForm.querySelector("button[type='submit']").disabled = true;
+    return;
+  }
+
+  directMessageForm.querySelector("button[type='submit']").disabled = false;
+
+  directMessageThreadList.innerHTML = threads
+    .map((thread) => `
+      <button
+        type="button"
+        class="message-thread-button ${thread.targetType === selectedDirectMessageTargetType && String(thread.targetCode || "") === String(selectedDirectMessageTargetCode || "") ? "active" : ""}"
+        data-thread-target-type="${escapeHtml(thread.targetType)}"
+        data-thread-target-code="${escapeHtml(thread.targetCode || "")}"
+      >
+        <strong>${escapeHtml(thread.targetName)}</strong>
+        <span class="message-thread-preview">${escapeHtml(thread.lastMessagePreview || "Še ni sporočil.")}</span>
+        <span class="muted">
+          ${thread.lastMessageAt ? `${new Date(thread.lastMessageAt).toLocaleString()} • ` : ""}
+          ${thread.messageCount} sporočil
+        </span>
+      </button>
+    `)
+    .join("");
+}
+
+function renderDirectMessages(conversation) {
+  directMessageThreadTitle.textContent = `Pogovor z ${conversation.target.name}`;
+  directMessageThreadDescription.textContent = conversation.target.type === "admin"
+    ? "Tukaj lahko pišeš administratorju in vidiš njegove odgovore."
+    : `Tukaj lahko pišeš mentorici/mentorju ${conversation.target.name}.`;
+  directMessageInput.placeholder = conversation.target.type === "admin"
+    ? "Napiši kratko vprašanje ali obvestilo administratorju"
+    : `Napiši sporočilo za ${conversation.target.name}`;
+
+  if (!conversation.messages.length) {
+    directMessagesContainer.innerHTML = '<p class="muted">V tem pogovoru še ni sporočil.</p>';
+    return;
+  }
+
+  directMessagesContainer.innerHTML = conversation.messages
+    .map((message) => {
+      const isOwnMessage = message.senderType === "user" && currentUser && message.senderCode === currentUser.code;
+      const senderLabel = isOwnMessage ? "Ti" : (message.senderLabel || "Mentorica/Mentor");
+
+      return `
+        <article class="direct-message-card ${isOwnMessage ? "outgoing" : "incoming"}">
+          <div class="inline-actions" style="justify-content: space-between; align-items: center; gap: 0.75rem;">
+            <strong>${escapeHtml(senderLabel)}</strong>
+            <span class="muted">${new Date(message.createdAt).toLocaleString()}</span>
+          </div>
+          <p>${escapeHtml(message.content)}</p>
+        </article>
+      `;
+    })
+    .join("");
+
+  directMessagesContainer.scrollTop = directMessagesContainer.scrollHeight;
+}
+
 async function loadQuests() {
   if (!currentUser) {
     renderLoggedOutPlaceholders();
@@ -374,6 +469,71 @@ async function loadIncomingBadgeRequests() {
   }
 }
 
+async function loadDirectMessageThreads() {
+  if (!currentUser) {
+    renderLoggedOutPlaceholders();
+    return;
+  }
+
+  try {
+    const threads = await userApiFetch("/api/me/direct-message-threads");
+
+    if (
+      !threads.some(
+        (thread) =>
+          thread.targetType === selectedDirectMessageTargetType &&
+          String(thread.targetCode || "") === String(selectedDirectMessageTargetCode || "")
+      )
+    ) {
+      const defaultThread = threads[0] || null;
+      selectedDirectMessageTargetType = defaultThread ? defaultThread.targetType : "admin";
+      selectedDirectMessageTargetCode = defaultThread ? String(defaultThread.targetCode || "") : "";
+    }
+
+    renderDirectMessageThreadList(threads);
+
+    if (threads.length > 0) {
+      await loadSelectedDirectMessages();
+    }
+  } catch (error) {
+    directMessageThreadList.innerHTML = renderErrorHtml(error.message);
+    directMessagesContainer.innerHTML = renderErrorHtml(error.message);
+  }
+}
+
+async function loadSelectedDirectMessages() {
+  if (!currentUser) {
+    renderLoggedOutPlaceholders();
+    return;
+  }
+
+  const selectedThread = getSelectedDirectMessageThread();
+
+  if (!selectedThread) {
+    directMessageThreadTitle.textContent = "Pogovor";
+    directMessageThreadDescription.textContent = "Izberi pogovor na levi, da vidiš sporočila.";
+    directMessagesContainer.innerHTML = '<p class="muted">Izberi pogovor na levi.</p>';
+    return;
+  }
+
+  directMessagesContainer.innerHTML = '<p class="muted">Nalagam pogovor ...</p>';
+
+  try {
+    const searchParams = new URLSearchParams({
+      targetType: selectedDirectMessageTargetType
+    });
+
+    if (selectedDirectMessageTargetCode) {
+      searchParams.set("targetCode", selectedDirectMessageTargetCode);
+    }
+
+    const conversation = await userApiFetch(`/api/me/direct-messages?${searchParams.toString()}`);
+    renderDirectMessages(conversation);
+  } catch (error) {
+    directMessagesContainer.innerHTML = renderErrorHtml(error.message);
+  }
+}
+
 async function refreshUserData() {
   if (!currentUser) {
     return;
@@ -407,7 +567,7 @@ lookupForm.addEventListener("submit", async (event) => {
     }
 
     setMessage(lookupMessage, `Prijavljen si kot ${user.name}.`, "success");
-    await Promise.all([loadQuests(), loadBadgeShareOptions(), loadIncomingBadgeRequests()]);
+    await Promise.all([loadQuests(), loadBadgeShareOptions(), loadIncomingBadgeRequests(), loadDirectMessageThreads()]);
   } catch (error) {
     setLoggedOutState();
     setMessage(lookupMessage, error.message, "error");
@@ -438,7 +598,7 @@ passwordChangeForm.addEventListener("submit", async (event) => {
     const user = await userApiFetch("/api/me");
     setAuthenticatedState(user);
     setMessage(lookupMessage, "Novo geslo je shranjeno. Zdaj lahko uporabljaš mentorsko stran.", "success");
-    await Promise.all([loadQuests(), loadBadgeShareOptions(), loadIncomingBadgeRequests()]);
+    await Promise.all([loadQuests(), loadBadgeShareOptions(), loadIncomingBadgeRequests(), loadDirectMessageThreads()]);
   } catch (error) {
     setMessage(passwordChangeMessage, error.message, "error");
   }
@@ -475,6 +635,48 @@ requestForm.addEventListener("submit", async (event) => {
     setMessage(requestMessage, `Zahtevek #${request.id} za ${request.points} točk je bil poslan.`, "success");
   } catch (error) {
     setMessage(requestMessage, error.message, "error");
+  }
+});
+
+directMessageForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearMessage(directMessageStatus);
+
+  if (!currentUser) {
+    setMessage(directMessageStatus, "Najprej se moraš prijaviti.", "error");
+    return;
+  }
+
+  const formData = new FormData(directMessageForm);
+  const content = String(formData.get("content") || "").trim();
+  const selectedThread = getSelectedDirectMessageThread();
+
+  if (!selectedThread) {
+    setMessage(directMessageStatus, "Najprej izberi pogovor.", "error");
+    return;
+  }
+
+  try {
+    await userApiFetch("/api/me/direct-messages", {
+      method: "POST",
+      body: JSON.stringify({
+        targetType: selectedThread.targetType,
+        targetCode: selectedThread.targetCode,
+        content
+      })
+    });
+
+    directMessageForm.reset();
+    setMessage(
+      directMessageStatus,
+      selectedThread.targetType === "admin"
+        ? "Sporočilo za admina je bilo poslano."
+        : `Sporočilo za ${selectedThread.targetName} je bilo poslano.`,
+      "success"
+    );
+    await loadDirectMessageThreads();
+  } catch (error) {
+    setMessage(directMessageStatus, error.message, "error");
   }
 });
 
@@ -629,13 +831,31 @@ tabButtons.forEach((button) => {
   });
 });
 
+directMessageThreadList.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-thread-target-type]");
+
+  if (!button) {
+    return;
+  }
+
+  selectedDirectMessageTargetType = String(button.dataset.threadTargetType || "admin");
+  selectedDirectMessageTargetCode = String(button.dataset.threadTargetCode || "");
+  renderDirectMessageThreadList(directMessageThreads);
+  await loadSelectedDirectMessages();
+});
+
+refreshDirectMessagesButton.addEventListener("click", async () => {
+  clearMessage(directMessageStatus);
+  await loadDirectMessageThreads();
+});
+
 async function restoreSession() {
   try {
     const user = await apiFetch("/api/me");
     setAuthenticatedState(user);
 
     if (!user.mustChangePassword) {
-      await Promise.all([loadQuests(), loadBadgeShareOptions(), loadIncomingBadgeRequests()]);
+      await Promise.all([loadQuests(), loadBadgeShareOptions(), loadIncomingBadgeRequests(), loadDirectMessageThreads()]);
     }
   } catch (_error) {
     setLoggedOutState();

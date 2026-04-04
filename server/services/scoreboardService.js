@@ -1,4 +1,5 @@
 const { getNextId, readData, writeData } = require("../data/store");
+const { getConfiguredUsername } = require("./adminAuthService");
 
 function createError(statusCode, message) {
   const error = new Error(message);
@@ -12,6 +13,26 @@ function normalizeCode(code) {
 
 function normalizeName(name) {
   return String(name || "").trim().toLowerCase();
+}
+
+function normalizeDirectParticipantType(type, fallback = "user") {
+  const normalizedType = String(type || fallback).trim().toLowerCase();
+
+  if (!["admin", "user"].includes(normalizedType)) {
+    throw createError(400, "Prejemnik sporočila ni veljaven.");
+  }
+
+  return normalizedType;
+}
+
+function validateDirectMessageContent(content) {
+  const normalizedContent = String(content || "").trim();
+
+  if (!normalizedContent) {
+    throw createError(400, "Sporočilo ne sme biti prazno.");
+  }
+
+  return normalizedContent;
 }
 
 function generateInternalUserCode(name, data, excludedUserId = null) {
@@ -672,6 +693,79 @@ function getUserRecordByName(name, data = readData()) {
   return matches[0];
 }
 
+function decorateDirectMessage(message) {
+  return {
+    ...message,
+    senderType: message.fromType,
+    senderCode: message.fromCode,
+    senderName: message.fromName,
+    recipientType: message.toType,
+    recipientCode: message.toCode,
+    recipientName: message.toName,
+    senderLabel: message.fromType === "admin"
+      ? (message.fromName || "Admin")
+      : (message.fromName || "Mentorica/Mentor"),
+    recipientLabel: message.toType === "admin"
+      ? (message.toName || "Admin")
+      : (message.toName || "Mentorica/Mentor"),
+    isFromAdmin: message.fromType === "admin"
+  };
+}
+
+function buildAdminParticipant(adminName = "") {
+  return {
+    type: "admin",
+    code: "",
+    name: String(adminName || getConfiguredUsername() || "Admin").trim() || "Admin"
+  };
+}
+
+function buildUserParticipant(user) {
+  return {
+    type: "user",
+    code: user.code,
+    name: user.name
+  };
+}
+
+function doesMessageMatchParticipant(message, participant) {
+  if (participant.type === "admin") {
+    return message.fromType === "admin" || message.toType === "admin";
+  }
+
+  return (
+    (message.fromType === "user" && message.fromCode === participant.code) ||
+    (message.toType === "user" && message.toCode === participant.code)
+  );
+}
+
+function doesMessageBelongToConversation(message, firstParticipant, secondParticipant) {
+  return (
+    doesMessageMatchParticipant(message, firstParticipant) &&
+    doesMessageMatchParticipant(message, secondParticipant)
+  );
+}
+
+function getMessagesForConversation(data, firstParticipant, secondParticipant) {
+  return data.directMessages
+    .filter((message) => doesMessageBelongToConversation(message, firstParticipant, secondParticipant))
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+}
+
+function buildDirectMessageThreadSummary(messages, participant) {
+  const latestMessage = messages[messages.length - 1] || null;
+
+  return {
+    targetType: participant.type,
+    targetCode: participant.code,
+    targetName: participant.name,
+    messageCount: messages.length,
+    lastMessageAt: latestMessage ? latestMessage.createdAt : "",
+    lastMessagePreview: latestMessage ? latestMessage.content : "",
+    lastSenderType: latestMessage ? latestMessage.fromType : ""
+  };
+}
+
 function createUser(payload) {
   const data = readData();
   const name = String(payload.name || "").trim();
@@ -803,6 +897,18 @@ function syncUserReferences(data, previousUser, nextUser) {
       transfer.lineageNames = lineageEntries.map((entry) => entry.name);
     }
   });
+
+  data.directMessages.forEach((message) => {
+    if (message.fromType === "user" && message.fromCode === previousUser.code) {
+      message.fromCode = nextUser.code;
+      message.fromName = nextUser.name;
+    }
+
+    if (message.toType === "user" && message.toCode === previousUser.code) {
+      message.toCode = nextUser.code;
+      message.toName = nextUser.name;
+    }
+  });
 }
 
 function updateUserByCode(code, payload) {
@@ -875,6 +981,184 @@ function createForumMessage(payload) {
   writeData(data);
 
   return message;
+}
+
+function resolveDirectMessageRecipient(payload, data) {
+  const targetType = normalizeDirectParticipantType(payload.targetType, "admin");
+
+  if (targetType === "admin") {
+    return buildAdminParticipant(payload.targetName);
+  }
+
+  return buildUserParticipant(getUserRecordByCode(payload.targetCode, data));
+}
+
+function createDirectMessageRecord(data, { sender, recipient, content }) {
+  const normalizedContent = validateDirectMessageContent(content);
+
+  const message = {
+    id: getNextId(data.directMessages),
+    fromType: sender.type,
+    fromCode: sender.type === "user" ? sender.code : "",
+    fromName: sender.name,
+    toType: recipient.type,
+    toCode: recipient.type === "user" ? recipient.code : "",
+    toName: recipient.name,
+    content: normalizedContent,
+    createdAt: new Date().toISOString()
+  };
+
+  data.directMessages.push(message);
+  writeData(data);
+
+  return decorateDirectMessage(message);
+}
+
+function createDirectMessageFromUser(payload) {
+  const data = readData();
+  const user = getUserRecordByCode(payload.code, data);
+  const sender = buildUserParticipant(user);
+  const recipient = resolveDirectMessageRecipient(payload, data);
+
+  if (recipient.type === "user" && recipient.code === user.code) {
+    throw createError(400, "Sporočila ne moreš poslati samemu sebi.");
+  }
+
+  return createDirectMessageRecord(data, {
+    sender,
+    recipient,
+    content: payload.content
+  });
+}
+
+function createDirectMessageFromAdmin(payload) {
+  const data = readData();
+  const sender = buildAdminParticipant(payload.senderName);
+  const recipient = buildUserParticipant(getUserRecordByCode(payload.targetCode, data));
+
+  return createDirectMessageRecord(data, {
+    sender,
+    recipient,
+    content: payload.content
+  });
+}
+
+function getDirectMessageThreadsForUser(code) {
+  const data = readData();
+  const user = getUserRecordByCode(code, data);
+  const currentParticipant = buildUserParticipant(user);
+  const threadParticipants = [
+    buildAdminParticipant(),
+    ...data.users
+      .filter((entry) => entry.code !== user.code)
+      .map((entry) => buildUserParticipant(entry))
+  ];
+
+  return threadParticipants
+    .map((participant) => {
+      const messages = getMessagesForConversation(data, currentParticipant, participant);
+      return buildDirectMessageThreadSummary(messages, participant);
+    })
+    .sort((a, b) => {
+      if (a.lastMessageAt && b.lastMessageAt && a.lastMessageAt !== b.lastMessageAt) {
+        return new Date(b.lastMessageAt) - new Date(a.lastMessageAt);
+      }
+
+      if (a.lastMessageAt && !b.lastMessageAt) {
+        return -1;
+      }
+
+      if (!a.lastMessageAt && b.lastMessageAt) {
+        return 1;
+      }
+
+      if (a.targetType !== b.targetType) {
+        return a.targetType === "admin" ? -1 : 1;
+      }
+
+      return a.targetName.localeCompare(b.targetName);
+    });
+}
+
+function getDirectMessagesForUser(code, targetType = "admin", targetCode = "") {
+  const data = readData();
+  const user = getUserRecordByCode(code, data);
+  const currentParticipant = buildUserParticipant(user);
+  const targetParticipant = resolveDirectMessageRecipient({
+    targetType,
+    targetCode
+  }, data);
+
+  if (targetParticipant.type === "user" && targetParticipant.code === user.code) {
+    throw createError(400, "Svojega pogovora ne moreš odpreti kot ločene niti.");
+  }
+
+  return {
+    user: {
+      code: user.code,
+      name: user.name
+    },
+    target: {
+      type: targetParticipant.type,
+      code: targetParticipant.code,
+      name: targetParticipant.name
+    },
+    messages: getMessagesForConversation(data, currentParticipant, targetParticipant)
+      .map((message) => decorateDirectMessage(message))
+  };
+}
+
+function getAdminDirectMessageThreads() {
+  const data = readData();
+  const adminParticipant = buildAdminParticipant();
+
+  return [...data.users]
+    .map((user) => {
+      const participant = buildUserParticipant(user);
+      const summary = buildDirectMessageThreadSummary(
+        getMessagesForConversation(data, adminParticipant, participant),
+        participant
+      );
+
+      return {
+        userCode: summary.targetCode,
+        userName: summary.targetName,
+        messageCount: summary.messageCount,
+        lastMessageAt: summary.lastMessageAt,
+        lastMessagePreview: summary.lastMessagePreview,
+        lastSenderType: summary.lastSenderType
+      };
+    })
+    .sort((a, b) => {
+      if (a.lastMessageAt && b.lastMessageAt && a.lastMessageAt !== b.lastMessageAt) {
+        return new Date(b.lastMessageAt) - new Date(a.lastMessageAt);
+      }
+
+      if (a.lastMessageAt && !b.lastMessageAt) {
+        return -1;
+      }
+
+      if (!a.lastMessageAt && b.lastMessageAt) {
+        return 1;
+      }
+
+      return a.userName.localeCompare(b.userName);
+    });
+}
+
+function getAdminDirectMessagesByUserCode(code) {
+  const data = readData();
+  const user = getUserRecordByCode(code, data);
+  const participant = buildUserParticipant(user);
+
+  return {
+    user: {
+      code: user.code,
+      name: user.name
+    },
+    messages: getMessagesForConversation(data, buildAdminParticipant(), participant)
+      .map((message) => decorateDirectMessage(message))
+  };
 }
 
 function createQuest(payload) {
@@ -1566,6 +1850,8 @@ module.exports = {
   addPointsToUserByName,
   assignBadgeToUserByName,
   acceptBadgeShareRequest,
+  createDirectMessageFromAdmin,
+  createDirectMessageFromUser,
   createBadge,
   updateBadge,
   createBadgeShareRequest,
@@ -1582,6 +1868,10 @@ module.exports = {
   getBadgeShareOptionsForUser,
   getBadgeChainsByBadgeId,
   getBadgeChainsByUserCode,
+  getAdminDirectMessagesByUserCode,
+  getAdminDirectMessageThreads,
+  getDirectMessageThreadsForUser,
+  getDirectMessagesForUser,
   getForumMessages,
   getCommunityEvents,
   getIncomingBadgeShareRequests,

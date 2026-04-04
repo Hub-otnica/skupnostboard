@@ -36,12 +36,16 @@ const {
   createBadge,
   updateBadge,
   createBadgeShareRequest,
+  createDirectMessageFromAdmin,
+  createDirectMessageFromUser,
   createForumMessage,
   createQuest,
   createEvent,
   joinQuest,
   createQuestRequest,
   createRequest,
+  getAdminDirectMessagesByUserCode,
+  getAdminDirectMessageThreads,
   getAvailableQuests,
   getAvailableQuestsForUser,
   getBadges,
@@ -49,6 +53,8 @@ const {
   getBadgeChainsByBadgeId,
   getBadgeChainsByUserCode,
   getBadgeShareOptionsForUser,
+  getDirectMessageThreadsForUser,
+  getDirectMessagesForUser,
   getForumMessages,
   getCommunityEvents,
   getIncomingBadgeShareRequests,
@@ -265,6 +271,26 @@ router.get("/me/incoming-badge-requests", requireUserAuth, requireUserReady, (re
   res.json(getIncomingBadgeShareRequests(req.authenticatedUser.code));
 });
 
+router.get("/me/direct-message-threads", requireUserAuth, requireUserReady, (req, res) => {
+  res.json(getDirectMessageThreadsForUser(req.authenticatedUser.code));
+});
+
+router.get("/me/direct-messages", requireUserAuth, requireUserReady, (req, res) => {
+  const targetType = String(req.query.targetType || "").trim() || "admin";
+  const targetCode = String(req.query.targetCode || "").trim();
+  res.json(getDirectMessagesForUser(req.authenticatedUser.code, targetType, targetCode));
+});
+
+router.post("/me/direct-messages", requireUserAuth, requireUserReady, (req, res) => {
+  const message = createDirectMessageFromUser({
+    code: req.authenticatedUser.code,
+    targetType: req.body.targetType,
+    targetCode: req.body.targetCode,
+    content: req.body.content
+  });
+  res.status(201).json(message);
+});
+
 router.post("/admin/login", (req, res) => {
   const username = String(req.body.username || "").trim();
   const password = String(req.body.password || "");
@@ -309,6 +335,23 @@ router.get("/admin/session", requireAdminAuth, (req, res) => {
     username: req.adminSession.username,
     expiresAt: req.adminSession.expiresAt
   });
+});
+
+router.get("/admin/direct-messages", requireAdminAuth, (_req, res) => {
+  res.json(getAdminDirectMessageThreads());
+});
+
+router.get("/admin/direct-messages/:code", requireAdminAuth, (req, res) => {
+  res.json(getAdminDirectMessagesByUserCode(req.params.code));
+});
+
+router.post("/admin/direct-messages", requireAdminAuth, (req, res) => {
+  const message = createDirectMessageFromAdmin({
+    targetCode: req.body.targetCode,
+    content: req.body.content,
+    senderName: req.adminSession.username
+  });
+  res.status(201).json(message);
 });
 
 router.post("/admin/logout", requireAdminAuth, (req, res) => {

@@ -32,6 +32,12 @@ const editBadgeMessage = document.getElementById("edit-badge-message");
 const assignBadgeMessage = document.getElementById("assign-badge-message");
 const pendingRequestsContainer = document.getElementById("pending-requests");
 const refreshButton = document.getElementById("refresh-requests");
+const adminDirectThreadList = document.getElementById("admin-direct-thread-list");
+const adminDirectThread = document.getElementById("admin-direct-thread");
+const adminDirectThreadTitle = document.getElementById("admin-direct-thread-title");
+const adminDirectMessageForm = document.getElementById("admin-direct-message-form");
+const adminDirectMessageStatus = document.getElementById("admin-direct-message-status");
+const adminRefreshDirectMessagesButton = document.getElementById("admin-refresh-direct-messages");
 const meetingMembersContainer = document.getElementById("meeting-members");
 const questStepsContainer = document.getElementById("quest-steps");
 const addQuestStepButton = document.getElementById("add-quest-step");
@@ -59,6 +65,8 @@ const tabPanels = document.querySelectorAll(".tab-panel");
 let usersState = [];
 let badgesState = [];
 let adminSetupRequired = false;
+let directMessageThreads = [];
+let selectedDirectMessageUserCode = "";
 
 async function adminApiFetch(path, options = {}) {
   try {
@@ -95,6 +103,9 @@ function setLoggedOutState(message = "") {
   adminDashboard.hidden = true;
   adminSessionSummary.textContent = "";
   clearMessage(adminSessionMessage);
+  clearMessage(adminDirectMessageStatus);
+  directMessageThreads = [];
+  selectedDirectMessageUserCode = "";
   syncAuthPanels();
   if (message) {
     if (adminSetupRequired) {
@@ -593,6 +604,96 @@ async function loadMeetingMembers() {
   }
 }
 
+function renderDirectMessageThreadList(threads) {
+  directMessageThreads = threads;
+
+  if (!threads.length) {
+    adminDirectThreadList.innerHTML = '<p class="muted">Najprej ustvari mentorico/mentorja.</p>';
+    adminDirectThreadTitle.textContent = "Pogovor z mentorico/mentorjem";
+    adminDirectThread.innerHTML = '<p class="muted">Ko bo ustvarjen mentorski profil, boš tukaj lahko pošiljal sporočila.</p>';
+    adminDirectMessageForm.querySelector("button[type='submit']").disabled = true;
+    return;
+  }
+
+  adminDirectMessageForm.querySelector("button[type='submit']").disabled = false;
+
+  adminDirectThreadList.innerHTML = threads
+    .map((thread) => `
+      <button
+        type="button"
+        class="message-thread-button ${thread.userCode === selectedDirectMessageUserCode ? "active" : ""}"
+        data-direct-thread-code="${escapeHtml(thread.userCode)}"
+      >
+        <strong>${escapeHtml(thread.userName)}</strong>
+        <span class="message-thread-preview">${escapeHtml(thread.lastMessagePreview || "Še ni sporočil.")}</span>
+        <span class="muted">
+          ${thread.lastMessageAt ? `${new Date(thread.lastMessageAt).toLocaleString()} • ` : ""}
+          ${thread.messageCount} sporočil
+        </span>
+      </button>
+    `)
+    .join("");
+}
+
+function renderAdminDirectMessages(conversation) {
+  adminDirectThreadTitle.textContent = `Pogovor z ${conversation.user.name}`;
+
+  if (!conversation.messages.length) {
+    adminDirectThread.innerHTML = '<p class="muted">Sporočil s to mentorico/s tem mentorjem še ni.</p>';
+    return;
+  }
+
+  adminDirectThread.innerHTML = conversation.messages
+    .map((message) => `
+      <article class="direct-message-card ${message.isFromAdmin ? "admin" : "user"}">
+        <div class="inline-actions" style="justify-content: space-between; align-items: center; gap: 0.75rem;">
+          <strong>${escapeHtml(message.isFromAdmin ? "Admin" : message.senderLabel)}</strong>
+          <span class="muted">${new Date(message.createdAt).toLocaleString()}</span>
+        </div>
+        <p>${escapeHtml(message.content)}</p>
+      </article>
+    `)
+    .join("");
+
+  adminDirectThread.scrollTop = adminDirectThread.scrollHeight;
+}
+
+async function loadDirectMessageThreads() {
+  try {
+    const threads = await adminApiFetch("/api/admin/direct-messages");
+    if (!selectedDirectMessageUserCode || !threads.some((thread) => thread.userCode === selectedDirectMessageUserCode)) {
+      selectedDirectMessageUserCode = threads[0] ? threads[0].userCode : "";
+    }
+    renderDirectMessageThreadList(threads);
+
+    if (selectedDirectMessageUserCode) {
+      await loadSelectedDirectMessageThread();
+    }
+  } catch (error) {
+    adminDirectThreadList.innerHTML = renderErrorHtml(error.message);
+    adminDirectThread.innerHTML = '<p class="muted">Pogovora ni bilo mogoče naložiti.</p>';
+  }
+}
+
+async function loadSelectedDirectMessageThread() {
+  clearMessage(adminDirectMessageStatus);
+
+  if (!selectedDirectMessageUserCode) {
+    adminDirectThreadTitle.textContent = "Pogovor z mentorico/mentorjem";
+    adminDirectThread.innerHTML = '<p class="muted">Izberi mentorico/mentorja za prikaz pogovora.</p>';
+    return;
+  }
+
+  adminDirectThread.innerHTML = '<p class="muted">Nalagam pogovor ...</p>';
+
+  try {
+    const conversation = await adminApiFetch(`/api/admin/direct-messages/${encodeURIComponent(selectedDirectMessageUserCode)}`);
+    renderAdminDirectMessages(conversation);
+  } catch (error) {
+    adminDirectThread.innerHTML = renderErrorHtml(error.message);
+  }
+}
+
 function renderPendingRequest(request) {
   const questStepsMarkup = request.type === "quest" && Array.isArray(request.questSteps)
     ? `
@@ -667,7 +768,7 @@ createUserForm.addEventListener("submit", async (event) => {
 
     createUserForm.reset();
     setMessage(createUserMessage, `Ustvarjena je bila mentorica/mentor ${user.name}.`, "success");
-    await loadMeetingMembers();
+    await Promise.all([loadMeetingMembers(), loadDirectMessageThreads()]);
   } catch (error) {
     setMessage(createUserMessage, error.message, "error");
   }
@@ -697,7 +798,7 @@ editUserForm.addEventListener("submit", async (event) => {
     });
 
     setMessage(editUserMessage, `Podatki mentorice/mentorja ${user.name} so bili posodobljeni.`, "success");
-    await loadMeetingMembers();
+    await Promise.all([loadMeetingMembers(), loadDirectMessageThreads()]);
     populateEditUserForm(user);
   } catch (error) {
     setMessage(editUserMessage, error.message, "error");
@@ -1028,6 +1129,51 @@ pendingRequestsContainer.addEventListener("click", async (event) => {
 
 refreshButton.addEventListener("click", loadPendingRequests);
 
+adminDirectThreadList.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-direct-thread-code]");
+
+  if (!button) {
+    return;
+  }
+
+  selectedDirectMessageUserCode = button.dataset.directThreadCode;
+  renderDirectMessageThreadList(directMessageThreads);
+  await loadSelectedDirectMessageThread();
+});
+
+adminDirectMessageForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearMessage(adminDirectMessageStatus);
+
+  if (!selectedDirectMessageUserCode) {
+    setMessage(adminDirectMessageStatus, "Najprej izberi mentorico/mentorja.", "error");
+    return;
+  }
+
+  const formData = new FormData(adminDirectMessageForm);
+  const content = String(formData.get("content") || "").trim();
+
+  try {
+    await adminApiFetch("/api/admin/direct-messages", {
+      method: "POST",
+      body: JSON.stringify({
+        targetCode: selectedDirectMessageUserCode,
+        content
+      })
+    });
+
+    adminDirectMessageForm.reset();
+    setMessage(adminDirectMessageStatus, "Sporočilo je bilo poslano.", "success");
+    await loadDirectMessageThreads();
+  } catch (error) {
+    setMessage(adminDirectMessageStatus, error.message, "error");
+  }
+});
+
+adminRefreshDirectMessagesButton.addEventListener("click", async () => {
+  await loadDirectMessageThreads();
+});
+
 tabButtons.forEach((button) => {
   button.addEventListener("click", () => {
     switchTab(button.dataset.tabTarget);
@@ -1106,11 +1252,13 @@ async function initializeDashboard() {
   resetBadgeForm();
   resetEditBadgeForm();
   resetEditUserForm();
+  adminDirectMessageForm.reset();
   await Promise.all([
     loadPendingRequests(),
     loadMeetingMembers(),
     loadBadges(),
-    loadEvents()
+    loadEvents(),
+    loadDirectMessageThreads()
   ]);
 }
 

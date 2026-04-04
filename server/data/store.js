@@ -31,6 +31,7 @@ const defaultData = {
   events: [],
   badges: [],
   badgeTransfers: [],
+  directMessages: [],
   forumMessages: [],
   userAuth: [],
   adminAuth: {
@@ -86,6 +87,10 @@ function readData() {
 
   if (!Array.isArray(data.badgeTransfers)) {
     data.badgeTransfers = [];
+  }
+
+  if (!Array.isArray(data.directMessages)) {
+    data.directMessages = [];
   }
 
   if (!Array.isArray(data.forumMessages)) {
@@ -189,6 +194,37 @@ function readData() {
     createdAt: String(transfer.createdAt || "").trim(),
     updatedAt: String(transfer.updatedAt || transfer.createdAt || "").trim()
   })).filter((transfer) => Number.isInteger(transfer.badgeId) && transfer.toUserCode);
+
+  data.directMessages = data.directMessages
+    .map((message) => ({
+      id: Number(message.id),
+      fromType: String(message.fromType || message.senderType || "user").trim(),
+      fromCode: String(message.fromCode || message.senderCode || "").trim().toUpperCase(),
+      fromName: String(message.fromName || message.senderName || "").trim(),
+      toType: String(message.toType || "").trim(),
+      toCode: String(message.toCode || "").trim().toUpperCase(),
+      toName: String(message.toName || "").trim(),
+      content: String(message.content || "").trim(),
+      createdAt: String(message.createdAt || "").trim()
+    }))
+    .map((message) => {
+      if (!message.toType) {
+        if (message.fromType === "admin") {
+          message.toType = "user";
+          message.toCode = String(message.toCode || message.userCode || "").trim().toUpperCase();
+          message.toName = String(message.toName || message.userName || "").trim();
+        } else {
+          message.toType = "admin";
+          message.toCode = "";
+          message.toName = String(message.toName || "Admin").trim();
+          message.fromCode = String(message.fromCode || message.userCode || "").trim().toUpperCase();
+          message.fromName = String(message.fromName || message.userName || "").trim();
+        }
+      }
+
+      return message;
+    })
+    .filter((message) => Number.isInteger(message.id) && message.content && message.fromType && message.toType);
 
   data.userAuth = data.userAuth
     .map((entry) => ({

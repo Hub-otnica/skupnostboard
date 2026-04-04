@@ -205,6 +205,63 @@ body {
   white-space: pre-wrap;
 }
 
+.direct-message-thread {
+  display: grid;
+  gap: 0.75rem;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.direct-message-card {
+  width: min(100%, 34rem);
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(225, 29, 46, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.direct-message-card.admin,
+.direct-message-card.outgoing {
+  margin-left: auto;
+  border-color: rgba(255, 91, 107, 0.34);
+  background: linear-gradient(135deg, rgba(225, 29, 46, 0.14), rgba(122, 15, 25, 0.12));
+}
+
+.direct-message-card.user,
+.direct-message-card.incoming {
+  margin-right: auto;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.direct-message-card p {
+  margin: 0.55rem 0 0;
+  white-space: pre-wrap;
+}
+
+.message-thread-button {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(225, 29, 46, 0.22);
+  background: rgba(255, 255, 255, 0.03);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.message-thread-button.active {
+  border-color: rgba(255, 91, 107, 0.8);
+  box-shadow: 0 0 0 2px rgba(255, 91, 107, 0.16);
+}
+
+.message-thread-preview {
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .quest-card {
   width: 100%;
   text-align: left;
@@ -671,6 +728,10 @@ button.danger {
 @media (max-width: 640px) {
   .quest-step-row {
     grid-template-columns: 1fr;
+  }
+
+  .direct-message-card {
+    width: 100%;
   }
 
   .topbar .container {
