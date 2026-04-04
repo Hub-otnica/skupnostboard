@@ -6,7 +6,7 @@ const playerCode = String(query.get("code") || "").trim();
 
 function renderPlayerSummary(user) {
   playerSummary.innerHTML = `
-    <h3>${user.name}</h3>
+    <h3>${escapeHtml(user.name)}</h3>
     <p>Trenutne točke: <strong>${user.points}</strong></p>
     <p>Sestanki: <strong>${user.attendance}</strong></p>
   `;
@@ -46,7 +46,7 @@ function renderApprovedRequests(requests) {
     .map((request) => `
       <tr>
         <td>${request.points}</td>
-        <td>${request.reason || "Razlog ni podan."}</td>
+        <td>${escapeHtml(request.reason || "Razlog ni podan.")}</td>
         <td>${new Date(request.processedAt || request.createdAt).toLocaleString()}</td>
       </tr>
     `)
@@ -66,9 +66,9 @@ async function loadPlayerLog() {
     renderBadges(data.user.badges || []);
     renderApprovedRequests(data.approvedRequests);
   } catch (error) {
-    playerSummary.innerHTML = `<p class="message visible error">${error.message}</p>`;
-    playerBadges.innerHTML = `<p class="message visible error">${error.message}</p>`;
-    approvedRequestsBody.innerHTML = `<tr><td colspan="3">${error.message}</td></tr>`;
+    playerSummary.innerHTML = renderErrorHtml(error.message);
+    playerBadges.innerHTML = renderErrorHtml(error.message);
+    approvedRequestsBody.innerHTML = renderErrorTableRow(error.message, 3);
   }
 }
 

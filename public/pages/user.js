@@ -2,11 +2,16 @@ const lookupForm = document.getElementById("lookup-form");
 const requestForm = document.getElementById("request-form");
 const badgeShareForm = document.getElementById("badge-share-form");
 const lookupMessage = document.getElementById("lookup-message");
+const passwordChangeForm = document.getElementById("password-change-form");
+const passwordChangeMessage = document.getElementById("password-change-message");
 const requestMessage = document.getElementById("request-message");
 const questMessage = document.getElementById("quest-message");
 const badgeShareMessage = document.getElementById("badge-share-message");
 const incomingBadgeMessage = document.getElementById("incoming-badge-message");
+const userLoginPanel = document.getElementById("user-login-panel");
+const passwordChangePanel = document.getElementById("password-change-panel");
 const userSummary = document.getElementById("user-summary");
+const userLogoutButton = document.getElementById("user-logout-button");
 const userActions = document.getElementById("user-actions");
 const questsList = document.getElementById("quests-list");
 const selectedQuestContainer = document.getElementById("selected-quest");
@@ -23,6 +28,29 @@ let currentUser = null;
 let quests = [];
 let selectedQuestId = null;
 let badgeShareOptions = [];
+
+async function userApiFetch(path, options = {}) {
+  try {
+    return await apiFetch(path, options);
+  } catch (error) {
+    if (String(error.message || "").includes("prijaviti kot mentorica/mentor")) {
+      setLoggedOutState("Seja je potekla. Prosim, prijavi se znova.");
+    }
+
+    throw error;
+  }
+}
+
+function renderLoggedOutPlaceholders() {
+  questsList.innerHTML = '<p class="muted">Prijavi se, da vidiš svoje queste.</p>';
+  selectedQuestContainer.innerHTML = '<p class="muted">Prijavi se, da lahko odpreš in oddaš quest.</p>';
+  userBadgesContainer.innerHTML = '<p class="muted">Prijavi se, da vidiš svoje značke.</p>';
+  badgeShareSelect.innerHTML = '<option value="">Najprej se prijavi</option>';
+  badgeHolderSelect.innerHTML = '<option value="">Najprej se prijavi</option>';
+  badgeRequirementsContainer.innerHTML = '<p class="muted">Prijavi se, da vidiš značke, ki jih lahko pridobiš.</p>';
+  badgeHoldersContainer.innerHTML = '<p class="muted">Prijavi se, da vidiš mentorice/mentorje z izbrano značko.</p>';
+  incomingBadgeRequestsContainer.innerHTML = '<p class="muted">Prijavi se, da vidiš prejete prošnje.</p>';
+}
 
 function renderBadgeCard(badge) {
   return `
@@ -59,22 +87,45 @@ function renderUser(user) {
   document.getElementById("user-name").textContent = user.name;
   document.getElementById("user-points").textContent = user.points;
   document.getElementById("user-attendance").textContent = user.attendance;
-  userSummary.hidden = false;
-  userActions.hidden = false;
   renderUserBadges(user.badges || []);
 }
 
-function hideUserState() {
+function setAuthenticatedState(user) {
+  currentUser = user;
+  userLoginPanel.hidden = true;
+  userSummary.hidden = false;
+  passwordChangePanel.hidden = !user.mustChangePassword;
+  userActions.hidden = user.mustChangePassword === true;
+  clearMessage(lookupMessage);
+  clearMessage(passwordChangeMessage);
+  renderUser(user);
+
+  if (user.mustChangePassword) {
+    renderLoggedOutPlaceholders();
+  }
+}
+
+function setLoggedOutState(message = "", type = "error") {
   currentUser = null;
   quests = [];
   badgeShareOptions = [];
   selectedQuestId = null;
+  userLoginPanel.hidden = false;
+  passwordChangePanel.hidden = true;
   userSummary.hidden = true;
   userActions.hidden = true;
   clearMessage(requestMessage);
   clearMessage(questMessage);
   clearMessage(badgeShareMessage);
   clearMessage(incomingBadgeMessage);
+  clearMessage(passwordChangeMessage);
+  renderLoggedOutPlaceholders();
+
+  if (message) {
+    setMessage(lookupMessage, message, type);
+  } else {
+    clearMessage(lookupMessage);
+  }
 }
 
 function renderUserBadges(badges) {
@@ -272,14 +323,12 @@ function renderIncomingBadgeRequests(requests) {
 
 async function loadQuests() {
   if (!currentUser) {
-    quests = [];
-    renderQuestList();
-    renderSelectedQuest();
+    renderLoggedOutPlaceholders();
     return;
   }
 
   try {
-    quests = await apiFetch(`/api/users/${encodeURIComponent(currentUser.code)}/quests`);
+    quests = await userApiFetch("/api/me/quests");
     if (!selectedQuestId && quests[0]) {
       selectedQuestId = quests[0].id;
     }
@@ -289,40 +338,39 @@ async function loadQuests() {
     renderQuestList();
     renderSelectedQuest();
   } catch (error) {
-    questsList.innerHTML = `<p class="message visible error">${error.message}</p>`;
+    questsList.innerHTML = renderErrorHtml(error.message);
     selectedQuestContainer.innerHTML = '<p class="muted">Questov ni bilo mogoče naložiti.</p>';
   }
 }
 
 async function loadBadgeShareOptions() {
   if (!currentUser) {
-    badgeShareOptions = [];
-    renderBadgeShareOptions();
+    renderLoggedOutPlaceholders();
     return;
   }
 
   try {
-    badgeShareOptions = await apiFetch(`/api/users/${encodeURIComponent(currentUser.code)}/badge-share-options`);
+    badgeShareOptions = await userApiFetch("/api/me/badge-share-options");
     renderBadgeShareOptions();
   } catch (error) {
     badgeShareSelect.innerHTML = '<option value="">Napaka pri nalaganju</option>';
     badgeHolderSelect.innerHTML = '<option value="">Napaka pri nalaganju</option>';
-    badgeRequirementsContainer.innerHTML = `<p class="message visible error">${error.message}</p>`;
-    badgeHoldersContainer.innerHTML = `<p class="message visible error">${error.message}</p>`;
+    badgeRequirementsContainer.innerHTML = renderErrorHtml(error.message);
+    badgeHoldersContainer.innerHTML = renderErrorHtml(error.message);
   }
 }
 
 async function loadIncomingBadgeRequests() {
   if (!currentUser) {
-    incomingBadgeRequestsContainer.innerHTML = '<p class="muted">Ni prejetih prošenj.</p>';
+    renderLoggedOutPlaceholders();
     return;
   }
 
   try {
-    const requests = await apiFetch(`/api/users/${encodeURIComponent(currentUser.code)}/incoming-badge-requests`);
+    const requests = await userApiFetch("/api/me/incoming-badge-requests");
     renderIncomingBadgeRequests(requests);
   } catch (error) {
-    incomingBadgeRequestsContainer.innerHTML = `<p class="message visible error">${error.message}</p>`;
+    incomingBadgeRequestsContainer.innerHTML = renderErrorHtml(error.message);
   }
 }
 
@@ -331,7 +379,7 @@ async function refreshUserData() {
     return;
   }
 
-  const user = await apiFetch(`/api/users/${encodeURIComponent(currentUser.code)}`);
+  const user = await userApiFetch("/api/me");
   currentUser = user;
   renderUser(user);
 }
@@ -341,19 +389,69 @@ lookupForm.addEventListener("submit", async (event) => {
   clearMessage(lookupMessage);
 
   const formData = new FormData(lookupForm);
-  const code = String(formData.get("code") || "").trim();
+  const username = String(formData.get("username") || "").trim();
+  const password = String(formData.get("password") || "");
 
   try {
-    const user = await apiFetch(`/api/users/${encodeURIComponent(code)}`);
-    currentUser = user;
-    renderUser(user);
-    document.getElementById("request-code").value = user.code;
-    setMessage(lookupMessage, `Naložene so trenutne točke za mentorski profil ${user.name}.`, "success");
+    await apiFetch("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password })
+    });
+
+    const user = await userApiFetch("/api/me");
+    lookupForm.reset();
+    setAuthenticatedState(user);
+    if (user.mustChangePassword) {
+      setMessage(lookupMessage, "Prijava je uspela. Pred nadaljevanjem moraš nastaviti novo geslo.", "error");
+      return;
+    }
+
+    setMessage(lookupMessage, `Prijavljen si kot ${user.name}.`, "success");
     await Promise.all([loadQuests(), loadBadgeShareOptions(), loadIncomingBadgeRequests()]);
   } catch (error) {
-    hideUserState();
+    setLoggedOutState();
     setMessage(lookupMessage, error.message, "error");
+  }
+});
+
+passwordChangeForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearMessage(passwordChangeMessage);
+
+  const formData = new FormData(passwordChangeForm);
+  const currentPassword = String(formData.get("currentPassword") || "");
+  const newPassword = String(formData.get("newPassword") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
+
+  if (newPassword !== confirmPassword) {
+    setMessage(passwordChangeMessage, "Gesli se ne ujemata.", "error");
+    return;
+  }
+
+  try {
+    await userApiFetch("/api/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
+
+    passwordChangeForm.reset();
+    const user = await userApiFetch("/api/me");
+    setAuthenticatedState(user);
+    setMessage(lookupMessage, "Novo geslo je shranjeno. Zdaj lahko uporabljaš mentorsko stran.", "success");
     await Promise.all([loadQuests(), loadBadgeShareOptions(), loadIncomingBadgeRequests()]);
+  } catch (error) {
+    setMessage(passwordChangeMessage, error.message, "error");
+  }
+});
+
+userLogoutButton.addEventListener("click", async () => {
+  try {
+    await apiFetch("/api/auth/logout", {
+      method: "POST"
+    });
+  } finally {
+    lookupForm.reset();
+    setLoggedOutState("Odjavljen si iz mentorskega računa.", "success");
   }
 });
 
@@ -363,21 +461,17 @@ requestForm.addEventListener("submit", async (event) => {
 
   const formData = new FormData(requestForm);
   const payload = {
-    code: String(formData.get("code") || "").trim(),
     points: Number(formData.get("points")),
     reason: String(formData.get("reason") || "").trim()
   };
 
   try {
-    const request = await apiFetch("/api/requests", {
+    const request = await userApiFetch("/api/requests", {
       method: "POST",
       body: JSON.stringify(payload)
     });
 
     requestForm.reset();
-    if (currentUser) {
-      document.getElementById("request-code").value = currentUser.code;
-    }
     setMessage(requestMessage, `Zahtevek #${request.id} za ${request.points} točk je bil poslan.`, "success");
   } catch (error) {
     setMessage(requestMessage, error.message, "error");
@@ -389,7 +483,7 @@ badgeShareForm.addEventListener("submit", async (event) => {
   clearMessage(badgeShareMessage);
 
   if (!currentUser) {
-    setMessage(badgeShareMessage, "Najprej se moraš vpisati.", "error");
+    setMessage(badgeShareMessage, "Najprej se moraš prijaviti.", "error");
     return;
   }
 
@@ -398,10 +492,9 @@ badgeShareForm.addEventListener("submit", async (event) => {
   const targetCode = String(formData.get("targetCode") || "").trim();
 
   try {
-    await apiFetch("/api/badge-share-requests", {
+    await userApiFetch("/api/badge-share-requests", {
       method: "POST",
       body: JSON.stringify({
-        requesterCode: currentUser.code,
         targetCode,
         badgeId
       })
@@ -448,7 +541,7 @@ selectedQuestContainer.addEventListener("submit", async (event) => {
   clearMessage(questMessage);
 
   if (!currentUser) {
-    setMessage(questMessage, "Pred oddajo questa moraš najprej naložiti svoj profil s kodo.", "error");
+    setMessage(questMessage, "Pred oddajo questa se moraš najprej prijaviti.", "error");
     return;
   }
 
@@ -456,10 +549,9 @@ selectedQuestContainer.addEventListener("submit", async (event) => {
   const completedSteps = formData.getAll("completedStep");
 
   try {
-    const request = await apiFetch("/api/quest-requests", {
+    const request = await userApiFetch("/api/quest-requests", {
       method: "POST",
       body: JSON.stringify({
-        code: currentUser.code,
         questId: selectedQuestId,
         completedSteps
       })
@@ -483,15 +575,14 @@ selectedQuestContainer.addEventListener("click", async (event) => {
   clearMessage(questMessage);
 
   if (!currentUser) {
-    setMessage(questMessage, "Pred prijavo na quest moraš najprej naložiti svoj profil s kodo.", "error");
+    setMessage(questMessage, "Pred prijavo na quest se moraš najprej prijaviti.", "error");
     return;
   }
 
   try {
-    await apiFetch("/api/quest-joins", {
+    await userApiFetch("/api/quest-joins", {
       method: "POST",
       body: JSON.stringify({
-        code: currentUser.code,
         questId: selectedQuestId
       })
     });
@@ -518,10 +609,9 @@ incomingBadgeRequestsContainer.addEventListener("click", async (event) => {
   const approvedLevel = Number(levelSelect ? levelSelect.value : 1);
 
   try {
-    await apiFetch(`/api/badge-share-requests/${button.dataset.badgeRequestId}/accept`, {
+    await userApiFetch(`/api/badge-share-requests/${button.dataset.badgeRequestId}/accept`, {
       method: "POST",
       body: JSON.stringify({
-        targetCode: currentUser.code,
         approvedLevel
       })
     });
@@ -539,7 +629,18 @@ tabButtons.forEach((button) => {
   });
 });
 
-hideUserState();
-loadQuests();
-loadBadgeShareOptions();
-loadIncomingBadgeRequests();
+async function restoreSession() {
+  try {
+    const user = await apiFetch("/api/me");
+    setAuthenticatedState(user);
+
+    if (!user.mustChangePassword) {
+      await Promise.all([loadQuests(), loadBadgeShareOptions(), loadIncomingBadgeRequests()]);
+    }
+  } catch (_error) {
+    setLoggedOutState();
+  }
+}
+
+setLoggedOutState();
+restoreSession();

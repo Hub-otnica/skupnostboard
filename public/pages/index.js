@@ -107,7 +107,7 @@ function renderScoreboard() {
     .map((user) => `
       <tr>
         <td>${user.pointsRank}</td>
-        <td><a class="player-link" href="/player?code=${encodeURIComponent(user.code)}">${user.name}</a></td>
+        <td><a class="player-link" href="/player?code=${encodeURIComponent(user.code)}">${escapeHtml(user.name)}</a></td>
         <td>${user.points}</td>
         <td>${user.attendance}</td>
         <td>${Array.isArray(user.userBadges) ? user.userBadges.length : Array.isArray(user.badgeIds) ? user.badgeIds.length : 0}</td>
@@ -498,8 +498,8 @@ async function loadScoreboard() {
     renderScoreboard();
     renderEvents(events);
   } catch (error) {
-    tbody.innerHTML = `<tr><td colspan="6">${error.message}</td></tr>`;
-    eventsList.innerHTML = `<p class="message visible error">${error.message}</p>`;
+    tbody.innerHTML = renderErrorTableRow(error.message, 6);
+    eventsList.innerHTML = renderErrorHtml(error.message);
   }
 }
 

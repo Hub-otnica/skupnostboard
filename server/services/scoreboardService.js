@@ -14,6 +14,26 @@ function normalizeName(name) {
   return String(name || "").trim().toLowerCase();
 }
 
+function generateInternalUserCode(name, data, excludedUserId = null) {
+  const normalizedBase = String(name || "")
+    .normalize("NFKD")
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_")
+    .replace(/_+/g, "_")
+    .slice(0, 20) || "USER";
+  let suffix = 1;
+  let candidate = normalizedBase;
+
+  while (data.users.some((user) => user.id !== excludedUserId && user.code === candidate)) {
+    suffix += 1;
+    candidate = `${normalizedBase.slice(0, Math.max(1, 20 - String(suffix).length - 1))}_${suffix}`;
+  }
+
+  return candidate;
+}
+
 function validatePoints(points, fieldName = "Točke") {
   const value = Number(points);
 
@@ -656,27 +676,16 @@ function createUser(payload) {
   const data = readData();
   const name = String(payload.name || "").trim();
   const normalizedName = normalizeName(name);
-  const code = normalizeCode(payload.code);
 
   if (!name) {
     throw createError(400, "Ime je obvezno.");
   }
 
-  if (!code) {
-    throw createError(400, "Koda je obvezna.");
-  }
-
-  if (!/^[A-Z0-9_-]{3,30}$/.test(code)) {
-    throw createError(400, "Koda mora imeti 3 do 30 znakov in lahko vsebuje črke, številke, vezaje ali podčrtaje.");
-  }
-
-  if (data.users.some((user) => user.code === code)) {
-    throw createError(409, "Ta koda je že v uporabi.");
-  }
-
   if (data.users.some((user) => normalizeName(user.name) === normalizedName)) {
     throw createError(409, "To ime je že v uporabi.");
   }
+
+  const code = generateInternalUserCode(name, data);
 
   const user = {
     id: getNextId(data.users),
@@ -805,22 +814,9 @@ function updateUserByCode(code, payload) {
   };
   const name = String(payload.name || "").trim();
   const normalizedName = normalizeName(name);
-  const nextCode = normalizeCode(payload.code);
 
   if (!name) {
     throw createError(400, "Ime je obvezno.");
-  }
-
-  if (!nextCode) {
-    throw createError(400, "Koda je obvezna.");
-  }
-
-  if (!/^[A-Z0-9_-]{3,30}$/.test(nextCode)) {
-    throw createError(400, "Koda mora imeti 3 do 30 znakov in lahko vsebuje črke, številke, vezaje ali podčrtaje.");
-  }
-
-  if (data.users.some((entry) => entry.id !== user.id && entry.code === nextCode)) {
-    throw createError(409, "Ta koda je že v uporabi.");
   }
 
   if (data.users.some((entry) => entry.id !== user.id && normalizeName(entry.name) === normalizedName)) {
@@ -828,7 +824,6 @@ function updateUserByCode(code, payload) {
   }
 
   user.name = name;
-  user.code = nextCode;
 
   syncUserReferences(data, previousUser, user);
   writeData(data);
@@ -1538,17 +1533,6 @@ function processRequest(requestId, status) {
   return request;
 }
 
-function addPointsToUser(code, points) {
-  const data = readData();
-  const user = getUserRecordByCode(code, data);
-  const amount = validatePoints(points);
-
-  user.points += amount;
-  writeData(data);
-
-  return user;
-}
-
 function addPointsToUserByName(name, points, reason = "") {
   const data = readData();
   const user = getUserRecordByName(name, data);
@@ -1579,7 +1563,6 @@ function addPointsToUserByName(name, points, reason = "") {
 module.exports = {
   createUser,
   updateUserByCode,
-  addPointsToUser,
   addPointsToUserByName,
   assignBadgeToUserByName,
   acceptBadgeShareRequest,

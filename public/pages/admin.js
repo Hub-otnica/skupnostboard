@@ -56,24 +56,13 @@ const editBadgeLevelDescriptionsContainer = document.getElementById("edit-badge-
 const addEditBadgeLevelButton = document.getElementById("add-edit-badge-level");
 const tabButtons = document.querySelectorAll(".tab-button");
 const tabPanels = document.querySelectorAll(".tab-panel");
-const ADMIN_TOKEN_STORAGE_KEY = "skorbord_admin_token";
 let usersState = [];
 let badgesState = [];
-let adminToken = "";
 let adminSetupRequired = false;
-
-function getAdminAuthHeaders(headers = {}) {
-  return adminToken
-    ? { ...headers, Authorization: `Bearer ${adminToken}` }
-    : headers;
-}
 
 async function adminApiFetch(path, options = {}) {
   try {
-    return await apiFetch(path, {
-      ...options,
-      headers: getAdminAuthHeaders(options.headers || {})
-    });
+    return await apiFetch(path, options);
   } catch (error) {
     if (String(error.message || "").includes("administratorska prijava")) {
       setLoggedOutState("Seja je potekla. Prosim, prijavi se znova.");
@@ -83,10 +72,7 @@ async function adminApiFetch(path, options = {}) {
 }
 
 async function adminFetch(path, options = {}) {
-  return fetch(path, {
-    ...options,
-    headers: getAdminAuthHeaders(options.headers || {})
-  });
+  return fetch(path, options);
 }
 
 function setAuthenticatedState(username) {
@@ -104,8 +90,6 @@ function syncAuthPanels() {
 }
 
 function setLoggedOutState(message = "") {
-  adminToken = "";
-  window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
   adminLoginCard.hidden = false;
   adminSessionCard.hidden = true;
   adminDashboard.hidden = true;
@@ -177,7 +161,8 @@ function populateEditUserForm(user) {
 
   editUserSelect.value = user.code;
   document.getElementById("edit-user-name").value = user.name || "";
-  document.getElementById("edit-user-code").value = user.code || "";
+  document.getElementById("edit-user-password").value = "";
+  document.getElementById("edit-user-confirm-password").value = "";
 }
 
 function createBadgeLevelField(value = "", levelNumber = 1, removeClassName = "badge-level-remove") {
@@ -395,7 +380,7 @@ async function loadBadgeLineage() {
     const lineage = await adminApiFetch(`/api/badges/${badgeId}/chains`);
     renderBadgeLineage(lineage);
   } catch (error) {
-    badgeLineageContainer.innerHTML = `<p class="message visible error">${error.message}</p>`;
+    badgeLineageContainer.innerHTML = renderErrorHtml(error.message);
     setMessage(badgeLineageMessage, error.message, "error");
   }
 }
@@ -483,7 +468,7 @@ async function loadEvents() {
     const events = await adminApiFetch("/api/events");
     renderEvents(events);
   } catch (error) {
-    eventsList.innerHTML = `<p class="message visible error">${error.message}</p>`;
+    eventsList.innerHTML = renderErrorHtml(error.message);
   }
 }
 
@@ -502,12 +487,12 @@ async function loadBadges() {
 
     await loadBadgeLineage();
   } catch (error) {
-    badgesList.innerHTML = `<p class="message visible error">${error.message}</p>`;
+    badgesList.innerHTML = renderErrorHtml(error.message);
     badgeSelect.innerHTML = '<option value="">Napaka pri nalaganju</option>';
     badgeLevelSelect.innerHTML = '<option value="">Napaka pri nalaganju</option>';
     editBadgeSelect.innerHTML = '<option value="">Napaka pri nalaganju</option>';
     badgeLineageSelect.innerHTML = '<option value="">Napaka pri nalaganju</option>';
-    badgeLineageContainer.innerHTML = `<p class="message visible error">${error.message}</p>`;
+    badgeLineageContainer.innerHTML = renderErrorHtml(error.message);
   }
 }
 
@@ -604,7 +589,7 @@ async function loadMeetingMembers() {
       resetEditUserForm();
     }
   } catch (error) {
-    meetingMembersContainer.innerHTML = `<p class="message visible error">${error.message}</p>`;
+    meetingMembersContainer.innerHTML = renderErrorHtml(error.message);
   }
 }
 
@@ -652,7 +637,7 @@ async function loadPendingRequests() {
 
     pendingRequestsContainer.innerHTML = requests.map(renderPendingRequest).join("");
   } catch (error) {
-    pendingRequestsContainer.innerHTML = `<p class="message visible error">${error.message}</p>`;
+    pendingRequestsContainer.innerHTML = renderErrorHtml(error.message);
   }
 }
 
@@ -661,9 +646,17 @@ createUserForm.addEventListener("submit", async (event) => {
   clearMessage(createUserMessage);
 
   const formData = new FormData(createUserForm);
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
+
+  if (password !== confirmPassword) {
+    setMessage(createUserMessage, "Gesli se ne ujemata.", "error");
+    return;
+  }
+
   const payload = {
     name: String(formData.get("name") || "").trim(),
-    code: String(formData.get("code") || "").trim()
+    password
   };
 
   try {
@@ -687,12 +680,20 @@ editUserForm.addEventListener("submit", async (event) => {
   const formData = new FormData(editUserForm);
   const currentCode = String(formData.get("currentCode") || "").trim();
   const name = String(formData.get("name") || "").trim();
-  const code = String(formData.get("code") || "").trim();
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
+
+  if (password || confirmPassword) {
+    if (password !== confirmPassword) {
+      setMessage(editUserMessage, "Gesli se ne ujemata.", "error");
+      return;
+    }
+  }
 
   try {
     const user = await adminApiFetch(`/api/users/${encodeURIComponent(currentCode)}`, {
       method: "PUT",
-      body: JSON.stringify({ name, code })
+      body: JSON.stringify({ name, password })
     });
 
     setMessage(editUserMessage, `Podatki mentorice/mentorja ${user.name} so bili posodobljeni.`, "success");
@@ -1047,8 +1048,6 @@ adminLoginForm.addEventListener("submit", async (event) => {
       body: JSON.stringify({ username, password })
     });
 
-    adminToken = String(session.token || "");
-    window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, adminToken);
     adminLoginForm.reset();
     adminLoginUsername.value = String(session.username || username);
     setAuthenticatedState(session.username || username);
@@ -1078,9 +1077,7 @@ adminSetupForm.addEventListener("submit", async (event) => {
       body: JSON.stringify({ username, password })
     });
 
-    adminToken = String(session.token || "");
     adminSetupRequired = false;
-    window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, adminToken);
     adminSetupForm.reset();
     adminSetupUsername.value = String(session.username || username);
     adminLoginUsername.value = String(session.username || username);
@@ -1138,15 +1135,6 @@ async function restoreExistingSession() {
     setLoggedOutState("Najprej nastavi administratorsko geslo.");
     return;
   }
-
-  const storedToken = window.localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY);
-
-  if (!storedToken) {
-    setLoggedOutState();
-    return;
-  }
-
-  adminToken = storedToken;
 
   try {
     const session = await adminApiFetch("/api/admin/session");

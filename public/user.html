@@ -22,14 +22,14 @@
     <main class="container">
       <section class="hero">
         <h2>Mentoričina/Mentorjeva Konzola</h2>
-        <p class="muted">Vnesi svojo kodo za ogled rezultata, oddajo zahtevkov in prijavo na aktivne queste.</p>
+        <p class="muted">Prijavi se s svojim uporabniškim imenom in geslom za ogled rezultata, oddajo zahtevkov in prijavo na aktivne queste.</p>
       </section>
 
       <section class="card mentor-help-card">
         <details>
           <summary>Hitra navodila za uporabo</summary>
           <ul>
-            <li>Vpiši svojo kodo na tej strani in odpri svoje podatke.</li>
+            <li>Prijavi se s svojim uporabniškim imenom in geslom.</li>
             <li>Točke oddaš kot zahtevek, admin pa ga potrdi ali zavrne.</li>
             <li>Pri questih se najprej prijavi, nato oddaj zaključene korake.</li>
             <li>V zavihku Značke lahko zaprosiš za deljenje in potrjuješ prejete prošnje.</li>
@@ -41,19 +41,48 @@
 
       <section class="grid">
         <div class="card">
-          <h3>Poišči Mentorja/Mentorico</h3>
-          <form id="lookup-form">
-            <label>
-              Mentorska koda
-              <input id="lookup-code" name="code" type="text" placeholder="Vnesi kodo" required />
-            </label>
-            <button type="submit">Vpis</button>
-          </form>
+          <div id="user-login-panel">
+            <h3>Prijava Mentorice/Mentorja</h3>
+            <form id="lookup-form">
+              <label>
+                Uporabniško ime
+                <input id="lookup-username" name="username" type="text" placeholder="Vnesi uporabniško ime" autocomplete="username" required />
+              </label>
+              <label>
+                Geslo
+                <input id="lookup-password" name="password" type="password" placeholder="Vnesi geslo" autocomplete="current-password" required />
+              </label>
+              <button type="submit">Prijava</button>
+            </form>
+          </div>
           <div id="lookup-message" class="message"></div>
           <div id="user-summary" class="card" hidden>
-            <h3 id="user-name">Mentor/Mentorica</h3>
+            <div class="inline-actions" style="justify-content: space-between; align-items: center;">
+              <h3 id="user-name" style="margin: 0;">Mentor/Mentorica</h3>
+              <button id="user-logout-button" class="secondary" type="button">Odjava</button>
+            </div>
             <p>Trenutne točke: <strong id="user-points">0</strong></p>
             <p>Sestanki: <strong id="user-attendance">0</strong></p>
+          </div>
+          <div id="password-change-panel" class="card" hidden>
+            <h3>Nastavi Novo Geslo</h3>
+            <p class="muted">Pred nadaljevanjem moraš zamenjati začasno ali ponastavljeno geslo.</p>
+            <form id="password-change-form">
+              <label>
+                Trenutno geslo
+                <input name="currentPassword" type="password" autocomplete="current-password" required />
+              </label>
+              <label>
+                Novo geslo
+                <input name="newPassword" type="password" autocomplete="new-password" minlength="6" required />
+              </label>
+              <label>
+                Potrdi novo geslo
+                <input name="confirmPassword" type="password" autocomplete="new-password" minlength="6" required />
+              </label>
+              <button type="submit">Shrani novo geslo</button>
+            </form>
+            <div id="password-change-message" class="message"></div>
           </div>
         </div>
       </section>
@@ -68,10 +97,6 @@
         <div class="tab-panel active" id="requests-panel" role="tabpanel" aria-labelledby="tab-button-requests">
           <h3>Zahtevaj Točke</h3>
           <form id="request-form">
-            <label>
-              Mentorska koda
-              <input id="request-code" name="code" type="text" placeholder="Ista koda" required />
-            </label>
             <label>
               Zahtevane točke
               <input id="request-points" name="points" type="number" min="1" step="1" required />

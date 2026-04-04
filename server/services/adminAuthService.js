@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const { readData, writeData } = require("../data/store");
 
+const ADMIN_SESSION_COOKIE_NAME = "skorbord_admin_session";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const sessions = new Map();
 const PASSWORD_KEYLEN = 64;
@@ -150,6 +151,35 @@ function revokeAdminSession(token) {
   sessions.delete(token);
 }
 
+function extractAdminSessionToken(headerValue) {
+  if (!headerValue || typeof headerValue !== "string") {
+    return "";
+  }
+
+  return headerValue
+    .split(";")
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith(`${ADMIN_SESSION_COOKIE_NAME}=`))
+    ?.slice(ADMIN_SESSION_COOKIE_NAME.length + 1) || "";
+}
+
+function serializeAdminSessionCookie(token, maxAgeSeconds) {
+  const secureAttribute = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `${ADMIN_SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}${secureAttribute}`;
+}
+
+function attachAdminSessionCookie(res, session) {
+  res.append("Set-Cookie", serializeAdminSessionCookie(session.token, Math.floor(SESSION_TTL_MS / 1000)));
+}
+
+function clearAdminSessionCookie(res) {
+  const secureAttribute = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  res.append(
+    "Set-Cookie",
+    `${ADMIN_SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secureAttribute}`
+  );
+}
+
 function isValidAdminCredentials(username, password) {
   if (isEnvAuthEnabled()) {
     const expectedUsername = String(process.env.ADMIN_USERNAME || "admin").trim() || "admin";
@@ -181,7 +211,10 @@ function extractBearerToken(headerValue) {
 }
 
 module.exports = {
+  attachAdminSessionCookie,
+  clearAdminSessionCookie,
   createAdminSession,
+  extractAdminSessionToken,
   extractBearerToken,
   getAdminSession,
   getConfiguredUsername,

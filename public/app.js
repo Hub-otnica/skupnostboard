@@ -36,6 +36,14 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function renderErrorHtml(text) {
+  return `<p class="message visible error">${escapeHtml(text)}</p>`;
+}
+
+function renderErrorTableRow(text, colspan = 1) {
+  return `<tr><td colspan="${Number(colspan) || 1}">${escapeHtml(text)}</td></tr>`;
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

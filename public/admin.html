@@ -87,16 +87,20 @@
               <h3>Ustvari Mentorico/Mentorja</h3>
               <form id="create-user-form">
                 <label>
-                  Ime
-                  <input name="name" type="text" placeholder="Unikatno ime mentorice/mentorja" required />
+                  Uporabniško ime mentorice/mentorja
+                  <input name="name" type="text" placeholder="Unikatno javno uporabniško ime" required />
                 </label>
                 <label>
-                  Unikatna koda
-                  <input name="code" type="text" placeholder="Primer: JAMIE01" required />
+                  Začasno geslo
+                  <input name="password" type="password" autocomplete="new-password" minlength="6" required />
+                </label>
+                <label>
+                  Potrdi začasno geslo
+                  <input name="confirmPassword" type="password" autocomplete="new-password" minlength="6" required />
                 </label>
                 <button type="submit">Ustvari mentorico/mentorja</button>
               </form>
-              <p class="muted">Ime mentorice/mentorja in koda morata biti unikatna.</p>
+              <p class="muted">Uporabniško ime mora biti unikatno. Ob ustvarjanju nastavi začetno geslo, ki ga bo uporabnik moral zamenjati ob prvi prijavi.</p>
               <div id="create-user-message" class="message"></div>
             </div>
 
@@ -110,15 +114,20 @@
                   </select>
                 </label>
                 <label>
-                  Ime mentorice/mentorja
-                  <input name="name" id="edit-user-name" type="text" placeholder="Novo ime mentorice/mentorja" required />
+                  Uporabniško ime mentorice/mentorja
+                  <input name="name" id="edit-user-name" type="text" placeholder="Novo uporabniško ime mentorice/mentorja" required />
                 </label>
                 <label>
-                  Koda mentorice/mentorja
-                  <input name="code" id="edit-user-code" type="text" placeholder="Nova koda mentorice/mentorja" required />
+                  Ponastavi geslo (neobvezno)
+                  <input name="password" id="edit-user-password" type="password" autocomplete="new-password" minlength="6" />
+                </label>
+                <label>
+                  Potrdi ponastavljeno geslo
+                  <input name="confirmPassword" id="edit-user-confirm-password" type="password" autocomplete="new-password" minlength="6" />
                 </label>
                 <button type="submit">Shrani mentorico/mentorja</button>
               </form>
+              <p class="muted">Če ponastaviš geslo, ga bo moral uporabnik ob naslednji prijavi takoj zamenjati.</p>
               <div id="edit-user-message" class="message"></div>
             </div>
 

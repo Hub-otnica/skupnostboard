@@ -2,7 +2,11 @@ const fs = require("fs");
 const path = require("path");
 
 const dataDir = __dirname;
-const dataFilePath = path.join(dataDir, "db.json");
+
+function getDataFilePath() {
+  const customPath = String(process.env.SKORBORD_DATA_FILE_PATH || "").trim();
+  return customPath || path.join(dataDir, "db.json");
+}
 
 const defaultData = {
   users: [
@@ -28,6 +32,7 @@ const defaultData = {
   badges: [],
   badgeTransfers: [],
   forumMessages: [],
+  userAuth: [],
   adminAuth: {
     username: "admin",
     passwordHash: "",
@@ -37,8 +42,11 @@ const defaultData = {
 };
 
 function ensureDataFile() {
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+  const dataFilePath = getDataFilePath();
+  const resolvedDataDir = path.dirname(dataFilePath);
+
+  if (!fs.existsSync(resolvedDataDir)) {
+    fs.mkdirSync(resolvedDataDir, { recursive: true });
   }
 
   if (!fs.existsSync(dataFilePath)) {
@@ -47,6 +55,7 @@ function ensureDataFile() {
 }
 
 function readData() {
+  const dataFilePath = getDataFilePath();
   ensureDataFile();
   const rawData = fs.readFileSync(dataFilePath, "utf8");
   const data = JSON.parse(rawData);
@@ -81,6 +90,10 @@ function readData() {
 
   if (!Array.isArray(data.forumMessages)) {
     data.forumMessages = [];
+  }
+
+  if (!Array.isArray(data.userAuth)) {
+    data.userAuth = [];
   }
 
   if (!data.adminAuth || typeof data.adminAuth !== "object") {
@@ -177,10 +190,21 @@ function readData() {
     updatedAt: String(transfer.updatedAt || transfer.createdAt || "").trim()
   })).filter((transfer) => Number.isInteger(transfer.badgeId) && transfer.toUserCode);
 
+  data.userAuth = data.userAuth
+    .map((entry) => ({
+      userId: Number(entry.userId),
+      passwordHash: String(entry.passwordHash || "").trim(),
+      passwordSalt: String(entry.passwordSalt || "").trim(),
+      passwordUpdatedAt: String(entry.passwordUpdatedAt || "").trim(),
+      mustChangePassword: entry.mustChangePassword !== false
+    }))
+    .filter((entry) => Number.isInteger(entry.userId));
+
   return data;
 }
 
 function writeData(data) {
+  const dataFilePath = getDataFilePath();
   fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2));
 }
 
@@ -193,8 +217,8 @@ function getNextId(items) {
 }
 
 module.exports = {
-  dataFilePath,
   ensureDataFile,
+  getDataFilePath,
   readData,
   writeData,
   getNextId

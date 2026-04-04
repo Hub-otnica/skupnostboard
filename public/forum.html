@@ -22,23 +22,52 @@
     <main class="container">
       <section class="hero">
         <h2>Forum</h2>
-        <p class="muted">Preberi objave drugih mentoric/mentorjev ali se vpiši s svojo kodo in napiši novo sporočilo.</p>
+        <p class="muted">Preberi objave drugih mentoric/mentorjev ali se prijavi s svojim uporabniškim imenom in geslom za objavo novih sporočil.</p>
       </section>
 
       <section class="grid">
         <div class="card">
-          <h3>Vpis Za Pisanje</h3>
-          <form id="forum-login-form">
-            <label>
-              Tvoja koda
-              <input id="forum-code" name="code" type="text" placeholder="Vnesi kodo" required />
-            </label>
-            <button type="submit">Vpis</button>
-          </form>
+          <div id="forum-login-panel">
+            <h3>Prijava Za Pisanje</h3>
+            <form id="forum-login-form">
+              <label>
+                Uporabniško ime
+                <input id="forum-username" name="username" type="text" placeholder="Vnesi uporabniško ime" autocomplete="username" required />
+              </label>
+              <label>
+                Geslo
+                <input id="forum-password" name="password" type="password" placeholder="Vnesi geslo" autocomplete="current-password" required />
+              </label>
+              <button type="submit">Prijava</button>
+            </form>
+          </div>
           <div id="forum-login-message" class="message"></div>
           <div id="forum-user-summary" class="card" hidden>
-            <h3 id="forum-user-name">Mentorica/mentor</h3>
-            <p>Vpisan za objavo sporočil.</p>
+            <div class="inline-actions" style="justify-content: space-between; align-items: center;">
+              <h3 id="forum-user-name" style="margin: 0;">Mentorica/mentor</h3>
+              <button id="forum-logout-button" class="secondary" type="button">Odjava</button>
+            </div>
+            <p>Prijavljen za objavo sporočil.</p>
+          </div>
+          <div id="forum-password-change-panel" class="card" hidden>
+            <h3>Nastavi Novo Geslo</h3>
+            <p class="muted">Pred pisanjem na forumu moraš zamenjati začasno ali ponastavljeno geslo.</p>
+            <form id="forum-password-change-form">
+              <label>
+                Trenutno geslo
+                <input name="currentPassword" type="password" autocomplete="current-password" required />
+              </label>
+              <label>
+                Novo geslo
+                <input name="newPassword" type="password" autocomplete="new-password" minlength="6" required />
+              </label>
+              <label>
+                Potrdi novo geslo
+                <input name="confirmPassword" type="password" autocomplete="new-password" minlength="6" required />
+              </label>
+              <button type="submit">Shrani novo geslo</button>
+            </form>
+            <div id="forum-password-change-message" class="message"></div>
           </div>
         </div>
 
