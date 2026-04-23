@@ -134,10 +134,16 @@ Admin-only endpoints require `Authorization: Bearer <token>`.
 
 ## Run with Docker Compose
 
-Build and start the app:
+Start the app:
 
 ```bash
-docker compose up --build
+docker compose up
+```
+
+For automatic updates while you edit files, run the watch mode in a separate terminal:
+
+```bash
+docker compose watch
 ```
 
 Then open `http://localhost:3000`.
