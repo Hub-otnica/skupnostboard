@@ -63,6 +63,7 @@ skorbord/
 
    ```bash
    npm start
+   (npm.cmd start)
    ```
 
 4. Open the app in your browser:
@@ -130,3 +131,25 @@ Admin-only endpoints require `Authorization: Bearer <token>`.
 - Meeting attendance starts at `0` for new and existing users and increases when the admin records a meeting.
 - Questi imajo od 1 do 10 korakov, uporabnik pa lahko isti quest odda le enkrat, če je že v čakanju ali odobren.
 - Points must be positive whole numbers.
+
+## Run with Docker Compose
+
+Build and start the app:
+
+```bash
+docker compose up --build
+```
+
+Then open `http://localhost:3000`.
+
+Notes:
+
+- App data stays in `server/data/db.json` on the host.
+- Uploaded badge images stay in `public/uploads/badges` on the host.
+- The container listens on `0.0.0.0:3000` and is published to host port `3000`.
+
+To stop it:
+
+```bash
+docker compose down
+```
