@@ -4,6 +4,10 @@ services:
     ports:
       - "3000:3000"
 
+    volumes:
+      - ./server/data:/app/server/data
+      - ./public/uploads/badges:/app/public/uploads/badges
+
     environment:
       NODE_ENV: development
 
