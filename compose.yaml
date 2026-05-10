@@ -1,0 +1,16 @@
+services:
+  skorbord:
+    build: .
+    ports:
+      - "3000:3000"
+
+    environment:
+      NODE_ENV: development
+
+    develop:
+      watch:
+        - path: .
+          target: /app
+          action: sync
+
+    command: npm run dev
