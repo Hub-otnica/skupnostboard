@@ -69,6 +69,20 @@ function validatePoints(points, fieldName = "Točke") {
   return value;
 }
 
+function validatePointAdjustment(points, fieldName = "Točke") {
+  const value = Number(points);
+
+  if (!Number.isFinite(value) || !Number.isInteger(value)) {
+    throw createError(400, `${fieldName} morajo biti celo število.`);
+  }
+
+  if (value === 0) {
+    throw createError(400, `${fieldName} ne smejo biti nič.`);
+  }
+
+  return value;
+}
+
 function validateNonNegativeInteger(value, fieldName) {
   const normalizedValue = Number(value);
 
@@ -1820,7 +1834,7 @@ function processRequest(requestId, status) {
 function addPointsToUserByName(name, points, reason = "") {
   const data = readData();
   const user = getUserRecordByName(name, data);
-  const amount = validatePoints(points);
+  const amount = validatePointAdjustment(points);
   const normalizedReason = String(reason || "").trim();
   const timestamp = new Date().toISOString();
 

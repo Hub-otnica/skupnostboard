@@ -216,6 +216,76 @@ test("admin session works through cookies instead of localStorage-style bearer s
   assert.equal(afterLogout.response.status, 401);
 });
 
+test("admin can subtract points with a negative manual adjustment", async (t) => {
+  const { baseUrl, dataFilePath } = await createTestServer(t);
+
+  const adminSetup = await requestJson(baseUrl, "/api/admin/setup", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      username: "admin",
+      password: "secret123"
+    })
+  });
+
+  assert.equal(adminSetup.response.status, 201);
+
+  const createUser = await requestJson(baseUrl, "/api/users", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: adminSetup.cookie
+    },
+    body: JSON.stringify({
+      name: "Manual Mentor",
+      password: "temp-pass-1"
+    })
+  });
+
+  assert.equal(createUser.response.status, 201);
+
+  const addPoints = await requestJson(baseUrl, "/api/users/by-name/points", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: adminSetup.cookie
+    },
+    body: JSON.stringify({
+      name: "Manual Mentor",
+      points: 12,
+      reason: "Bonus"
+    })
+  });
+
+  assert.equal(addPoints.response.status, 200);
+  assert.equal(addPoints.body.points, 12);
+
+  const subtractPoints = await requestJson(baseUrl, "/api/users/by-name/points", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: adminSetup.cookie
+    },
+    body: JSON.stringify({
+      name: "Manual Mentor",
+      points: -5,
+      reason: "Correction"
+    })
+  });
+
+  assert.equal(subtractPoints.response.status, 200);
+  assert.equal(subtractPoints.body.points, 7);
+
+  const storedData = JSON.parse(fs.readFileSync(dataFilePath, "utf8"));
+  const manualCorrection = storedData.requests.find((request) => request.reason === "Correction");
+
+  assert.equal(manualCorrection.points, -5);
+  assert.equal(manualCorrection.type, "manual");
+  assert.equal(manualCorrection.status, "approved");
+});
+
 test("admin cannot create duplicate usernames", async (t) => {
   const { baseUrl } = await createTestServer(t);
 

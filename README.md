@@ -12,7 +12,7 @@ Simple scoreboard web app built with Node.js, Express, vanilla HTML/CSS/JavaScri
 - User point requests with optional reason
 - Quest system with admin-created tasks and user submissions for approval
 - Admin dashboard for approving or rejecting requests
-- Admin tools for creating users and manually adding points by user name
+- Admin tools for creating users and manually adjusting points by user name
 - Meeting attendance tracking with admin-recorded meeting reports
 - Basic validation for names, codes, and point values
 
@@ -110,7 +110,7 @@ ADMIN_USERNAME=admin ADMIN_PASSWORD=change-me npm start
 - `POST /api/meetings` - record a meeting with `{ "presentCodes": ["ALEX01"], "note": "Weekly sync" }`
 - `POST /api/requests/:id/approve` - approve a request
 - `POST /api/requests/:id/reject` - reject a request
-- `POST /api/users/by-name/points` - manually add points by exact user name with `{ "name": "Alex", "points": 5, "reason": "Won bonus round" }`
+- `POST /api/users/by-name/points` - manually adjust points by exact user name with `{ "name": "Alex", "points": -5, "reason": "Correction" }`
 - `POST /api/admin/login` - admin login with `{ "username": "admin", "password": "..." }`
 - `POST /api/admin/setup` - first-time admin password setup with `{ "username": "admin", "password": "..." }`
 - `GET /api/admin/session` - verify current admin token
