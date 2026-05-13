@@ -40,6 +40,7 @@ const {
   createDirectMessageFromUser,
   createForumMessage,
   createQuest,
+  cancelQuest,
   createEvent,
   joinQuest,
   createQuestRequest,
@@ -57,6 +58,7 @@ const {
   getDirectMessagesForUser,
   getForumMessages,
   getCommunityEvents,
+  getAdminQuests,
   getIncomingBadgeShareRequests,
   getApprovedRequestsByUserCode,
   getPendingRequests,
@@ -392,6 +394,15 @@ router.put("/users/:code", requireAdminAuth, (req, res) => {
 router.post("/quests", requireAdminAuth, (req, res) => {
   const quest = createQuest(req.body);
   res.status(201).json(quest);
+});
+
+router.get("/admin/quests", requireAdminAuth, (_req, res) => {
+  res.json(getAdminQuests());
+});
+
+router.post("/quests/:id/cancel", requireAdminAuth, (req, res) => {
+  const quest = cancelQuest(req.params.id);
+  res.json(quest);
 });
 
 router.post("/events", requireAdminAuth, (req, res) => {

@@ -131,6 +131,20 @@ function validateRequiredPlayers(requiredPlayers) {
   return value;
 }
 
+function validateCompletionLimit(completionLimit) {
+  const value = Number(completionLimit || 1);
+
+  if (!Number.isFinite(value) || !Number.isInteger(value)) {
+    throw createError(400, "Število izpolnitev mora biti celo število.");
+  }
+
+  if (value <= 0) {
+    throw createError(400, "Število izpolnitev mora biti večje od nič.");
+  }
+
+  return value;
+}
+
 function validateEventDate(dateValue) {
   const normalizedDate = String(dateValue || "").trim();
 
@@ -581,12 +595,60 @@ function getForumMessages() {
 }
 
 function isQuestSubmittedOrCompleted(questId, data) {
+  const quest = data.quests.find((entry) => entry.id === questId);
+
+  if (quest && getQuestCompletedCount(quest, data) >= getQuestCompletionLimit(quest)) {
+    return true;
+  }
+
   return data.requests.some(
     (request) =>
       request.type === "quest" &&
       request.questId === questId &&
-      (request.status === "pending" || request.status === "approved")
+      request.status === "pending"
   );
+}
+
+function getQuestCompletionLimit(quest) {
+  return Number.isInteger(quest.completionLimit) && quest.completionLimit > 0 ? quest.completionLimit : 1;
+}
+
+function getQuestCompletedCount(quest, data) {
+  const approvedRequestCount = data.requests.filter(
+    (request) =>
+      request.type === "quest" &&
+      request.questId === quest.id &&
+      request.status === "approved"
+  ).length;
+  const storedCount = Number.isInteger(quest.completedCount) && quest.completedCount >= 0 ? quest.completedCount : 0;
+
+  return Math.max(storedCount, approvedRequestCount);
+}
+
+function decorateQuest(quest, data, user = null) {
+  const completionLimit = getQuestCompletionLimit(quest);
+  const completedCount = getQuestCompletedCount(quest, data);
+  const hasPendingRequest = data.requests.some(
+    (request) =>
+      request.type === "quest" &&
+      request.questId === quest.id &&
+      request.status === "pending"
+  );
+  const isParticipant = user
+    ? quest.participants.some((participant) => participant.code === user.code)
+    : false;
+
+  return {
+    ...quest,
+    completionLimit,
+    completedCount,
+    remainingCompletions: Math.max(0, completionLimit - completedCount),
+    participantCount: quest.participants.length,
+    participantNames: quest.participants.map((participant) => participant.name),
+    isParticipant,
+    hasPendingRequest,
+    isFull: quest.participants.length >= quest.requiredPlayers
+  };
 }
 
 function getAvailableQuests() {
@@ -594,18 +656,22 @@ function getAvailableQuests() {
 
   return [...data.quests]
     .filter((quest) => quest.active !== false && !isQuestSubmittedOrCompleted(quest.id, data))
-    .map((quest) => ({
-      ...quest,
-      participantCount: quest.participants.length,
-      participantNames: quest.participants.map((participant) => participant.name),
-      hasPendingRequest: data.requests.some(
-        (request) =>
-          request.type === "quest" &&
-          request.questId === quest.id &&
-          request.status === "pending"
-      )
-    }))
+    .map((quest) => decorateQuest(quest, data))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+function getAdminQuests() {
+  const data = readDataWithProcessedEvents();
+
+  return [...data.quests]
+    .map((quest) => decorateQuest(quest, data))
+    .sort((a, b) => {
+      if (a.active !== b.active) {
+        return a.active ? -1 : 1;
+      }
+
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
 }
 
 function getAvailableQuestsForUser(code) {
@@ -614,26 +680,7 @@ function getAvailableQuestsForUser(code) {
 
   return data.quests
     .filter((quest) => quest.active !== false && !isQuestSubmittedOrCompleted(quest.id, data))
-    .map((quest) => {
-      const hasPendingRequest = data.requests.some(
-        (request) =>
-          request.type === "quest" &&
-          request.questId === quest.id &&
-          request.status === "pending"
-      );
-      const isParticipant = quest.participants.some(
-        (participant) => participant.code === user.code
-      );
-
-      return {
-        ...quest,
-        participantCount: quest.participants.length,
-        participantNames: quest.participants.map((participant) => participant.name),
-        isParticipant,
-        hasPendingRequest,
-        isFull: quest.participants.length >= quest.requiredPlayers
-      };
-    })
+    .map((quest) => decorateQuest(quest, data, user))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
@@ -1180,6 +1227,7 @@ function createQuest(payload) {
   const title = String(payload.title || "").trim();
   const rewardPoints = validatePoints(payload.rewardPoints, "Nagrada");
   const requiredPlayers = validateRequiredPlayers(payload.requiredPlayers);
+  const completionLimit = validateCompletionLimit(payload.completionLimit);
   const steps = validateQuestSteps(payload.steps);
 
   if (!title) {
@@ -1191,6 +1239,8 @@ function createQuest(payload) {
     title,
     rewardPoints,
     requiredPlayers,
+    completionLimit,
+    completedCount: 0,
     steps,
     participants: [],
     active: true,
@@ -1198,6 +1248,21 @@ function createQuest(payload) {
   };
 
   data.quests.push(quest);
+  writeData(data);
+
+  return quest;
+}
+
+function cancelQuest(questId) {
+  const data = readData();
+  const quest = getQuestRecordById(questId, data);
+
+  if (quest.active === false) {
+    throw createError(400, "Ta quest je že preklican ali zaključen.");
+  }
+
+  quest.active = false;
+  quest.cancelledAt = new Date().toISOString();
   writeData(data);
 
   return quest;
@@ -1627,6 +1692,10 @@ function joinQuest(payload) {
     throw createError(400, "Ta quest ni več aktiven.");
   }
 
+  if (getQuestCompletedCount(quest, data) >= getQuestCompletionLimit(quest)) {
+    throw createError(400, "Ta quest je že dosegel število dovoljenih izpolnitev.");
+  }
+
   const hasPendingRequest = data.requests.some(
     (request) =>
       request.type === "quest" &&
@@ -1668,6 +1737,10 @@ function createQuestRequest(payload) {
     throw createError(400, "Ta quest ni več aktiven.");
   }
 
+  if (getQuestCompletedCount(quest, data) >= getQuestCompletionLimit(quest)) {
+    throw createError(400, "Ta quest je že dosegel število dovoljenih izpolnitev.");
+  }
+
   const isParticipant = quest.participants.some(
     (participant) => participant.code === user.code
   );
@@ -1694,11 +1767,11 @@ function createQuestRequest(payload) {
     (request) =>
       request.type === "quest" &&
       request.questId === quest.id &&
-      (request.status === "pending" || request.status === "approved")
+      request.status === "pending"
   );
 
   if (existingRequest) {
-    throw createError(409, "Ta quest je že oddan ali zaključen.");
+    throw createError(409, "Ta quest je že oddan in čaka na potrditev.");
   }
 
   const request = {
@@ -1711,6 +1784,8 @@ function createQuestRequest(payload) {
     questId: quest.id,
     questTitle: quest.title,
     requiredPlayers: quest.requiredPlayers,
+    completionLimit: getQuestCompletionLimit(quest),
+    completedCount: getQuestCompletedCount(quest, data),
     questSteps: quest.steps,
     participantCodes: quest.participants.map((participant) => participant.code),
     participantNames: quest.participants.map((participant) => participant.name),
@@ -1818,7 +1893,12 @@ function processRequest(requestId, status) {
       const quest = data.quests.find((entry) => entry.id === request.questId);
 
       if (quest) {
-        quest.active = false;
+        quest.completedCount = getQuestCompletedCount(quest, data);
+        quest.participants = [];
+
+        if (quest.completedCount >= getQuestCompletionLimit(quest)) {
+          quest.active = false;
+        }
       }
     } else {
       const user = getUserRecordByCode(request.userCode, data);
@@ -1871,11 +1951,13 @@ module.exports = {
   createBadgeShareRequest,
   createForumMessage,
   createQuest,
+  cancelQuest,
   createEvent,
   joinQuest,
   createQuestRequest,
   createRequest,
   getAvailableQuests,
+  getAdminQuests,
   getAvailableQuestsForUser,
   getBadges,
   getBadgeNetworkByBadgeId,

@@ -32,6 +32,7 @@ const editBadgeMessage = document.getElementById("edit-badge-message");
 const assignBadgeMessage = document.getElementById("assign-badge-message");
 const pendingRequestsContainer = document.getElementById("pending-requests");
 const refreshButton = document.getElementById("refresh-requests");
+const activeQuestsList = document.getElementById("active-quests-list");
 const adminDirectThreadList = document.getElementById("admin-direct-thread-list");
 const adminDirectThread = document.getElementById("admin-direct-thread");
 const adminDirectThreadTitle = document.getElementById("admin-direct-thread-title");
@@ -540,9 +541,50 @@ function addQuestStep(value = "") {
 
 function resetQuestForm() {
   questForm.reset();
+  questForm.elements.completionLimit.value = "1";
   questStepsContainer.innerHTML = "";
   addQuestStep();
   addQuestStep();
+}
+
+function renderAdminQuest(quest) {
+  const participantNames = Array.isArray(quest.participantNames) ? quest.participantNames : [];
+  const participantMarkup = participantNames.length
+    ? participantNames.map((name) => `<div class="quest-mini-item">${escapeHtml(name)}</div>`).join("")
+    : '<p class="muted">Trenutno ni prijavljene ekipe.</p>';
+  const pendingText = quest.hasPendingRequest ? '<p class="muted">Oddano in čaka na potrditev.</p>' : "";
+
+  return `
+    <article class="card">
+      <p><span class="pill">${quest.active ? "Aktiven" : "Zaključen"}</span></p>
+      <h3>${escapeHtml(quest.title)}</h3>
+      <p><strong>Nagrada:</strong> ${quest.rewardPoints} točk</p>
+      <p><strong>Izpolnitve:</strong> ${quest.completedCount || 0} / ${quest.completionLimit || 1}</p>
+      <p><strong>Ekipa:</strong> ${quest.participantCount || 0} / ${quest.requiredPlayers}</p>
+      <div class="quest-mini-list">${participantMarkup}</div>
+      ${pendingText}
+      <div class="inline-actions">
+        <button type="button" class="danger" data-quest-cancel-id="${quest.id}" ${quest.active ? "" : "disabled"}>Prekliči quest</button>
+      </div>
+    </article>
+  `;
+}
+
+async function loadAdminQuests() {
+  if (!activeQuestsList) {
+    return;
+  }
+
+  try {
+    const quests = await adminApiFetch("/api/admin/quests");
+    const visibleQuests = quests.filter((quest) => quest.active);
+
+    activeQuestsList.innerHTML = visibleQuests.length
+      ? visibleQuests.map(renderAdminQuest).join("")
+      : '<p class="muted">Trenutno ni questov za upravljanje.</p>';
+  } catch (error) {
+    activeQuestsList.innerHTML = renderErrorHtml(error.message);
+  }
 }
 
 function renderMeetingMembers(users) {
@@ -861,16 +903,18 @@ questForm.addEventListener("submit", async (event) => {
   const title = String(formData.get("title") || "").trim();
   const rewardPoints = Number(formData.get("rewardPoints"));
   const requiredPlayers = Number(formData.get("requiredPlayers"));
+  const completionLimit = Number(formData.get("completionLimit"));
   const steps = formData.getAll("questStep").map((step) => String(step || "").trim()).filter(Boolean);
 
   try {
     const quest = await adminApiFetch("/api/quests", {
       method: "POST",
-      body: JSON.stringify({ title, rewardPoints, requiredPlayers, steps })
+      body: JSON.stringify({ title, rewardPoints, requiredPlayers, completionLimit, steps })
     });
 
     resetQuestForm();
-    setMessage(questMessage, `Quest "${quest.title}" za ${quest.requiredPlayers} igralcev je bil objavljen.`, "success");
+    setMessage(questMessage, `Quest "${quest.title}" za ${quest.requiredPlayers} igralcev in ${quest.completionLimit} izpolnitev je bil objavljen.`, "success");
+    await loadAdminQuests();
   } catch (error) {
     setMessage(questMessage, error.message, "error");
   }
@@ -1121,11 +1165,33 @@ pendingRequestsContainer.addEventListener("click", async (event) => {
     await adminApiFetch(`/api/requests/${requestId}/${action}`, {
       method: "POST"
     });
-    await loadPendingRequests();
+    await Promise.all([loadPendingRequests(), loadAdminQuests()]);
   } catch (error) {
     alert(error.message);
   }
 });
+
+if (activeQuestsList) {
+  activeQuestsList.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-quest-cancel-id]");
+
+    if (!button) {
+      return;
+    }
+
+    clearMessage(questMessage);
+
+    try {
+      await adminApiFetch(`/api/quests/${button.dataset.questCancelId}/cancel`, {
+        method: "POST"
+      });
+      setMessage(questMessage, "Quest je bil preklican.", "success");
+      await Promise.all([loadAdminQuests(), loadPendingRequests()]);
+    } catch (error) {
+      setMessage(questMessage, error.message, "error");
+    }
+  });
+}
 
 refreshButton.addEventListener("click", loadPendingRequests);
 
@@ -1255,6 +1321,7 @@ async function initializeDashboard() {
   adminDirectMessageForm.reset();
   await Promise.all([
     loadPendingRequests(),
+    loadAdminQuests(),
     loadMeetingMembers(),
     loadBadges(),
     loadEvents(),

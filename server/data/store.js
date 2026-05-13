@@ -138,6 +138,8 @@ function readData() {
     ...quest,
     rewardPoints: Number.isInteger(quest.rewardPoints) ? quest.rewardPoints : 0,
     requiredPlayers: Number.isInteger(quest.requiredPlayers) ? quest.requiredPlayers : 1,
+    completionLimit: Number.isInteger(quest.completionLimit) && quest.completionLimit > 0 ? quest.completionLimit : 1,
+    completedCount: Number.isInteger(quest.completedCount) && quest.completedCount >= 0 ? quest.completedCount : 0,
     participants: Array.isArray(quest.participants) ? quest.participants : [],
     steps: Array.isArray(quest.steps) ? quest.steps : [],
     active: quest.active !== false

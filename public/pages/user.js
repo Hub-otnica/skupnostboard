@@ -173,6 +173,7 @@ function renderQuestList() {
         <span class="quest-meta">${quest.rewardPoints} točk</span>
         <span class="muted">${quest.steps.length} korakov</span>
         <span class="muted">${quest.participantCount} / ${quest.requiredPlayers} igralcev</span>
+        <span class="muted">Izpolnitve: ${quest.completedCount || 0} / ${quest.completionLimit || 1}</span>
         <span class="muted">${quest.participantNames.length ? quest.participantNames.map((name) => escapeHtml(name)).join(", ") : "Še brez prijavljenih."}</span>
       </button>
     `)
@@ -211,6 +212,7 @@ function renderSelectedQuest() {
       <h3>${escapeHtml(quest.title)}</h3>
       <p><strong>Nagrada:</strong> ${quest.rewardPoints} točk</p>
       <p><strong>Ekipa:</strong> ${quest.participantCount} / ${quest.requiredPlayers}</p>
+      <p><strong>Izpolnitve:</strong> ${quest.completedCount || 0} / ${quest.completionLimit || 1}</p>
       <div class="quest-mini-list">${participantList}</div>
       ${questStatus}
       <button type="button" id="join-quest-button" ${canJoin ? "" : "disabled"}>Prijavi se na quest</button>

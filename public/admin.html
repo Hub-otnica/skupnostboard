@@ -182,6 +182,10 @@
                   Število igralcev
                   <input name="requiredPlayers" type="number" min="1" step="1" required />
                 </label>
+                <label>
+                  Število izpolnitev
+                  <input name="completionLimit" type="number" min="1" step="1" value="1" required />
+                </label>
                 <div>
                   <div class="inline-actions" style="justify-content: space-between; align-items: center;">
                     <p class="muted" style="margin: 0;">Dodaj med 1 in 10 korakov, ki jih mora mentorica/mentor odkljukati.</p>
@@ -192,6 +196,7 @@
                 <button type="submit">Objavi quest</button>
               </form>
               <div id="quest-message" class="message"></div>
+              <div id="active-quests-list" class="quest-list" style="margin-top: 1rem;"></div>
             </div>
 
             <div class="card">

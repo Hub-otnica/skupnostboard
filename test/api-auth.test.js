@@ -286,6 +286,165 @@ test("admin can subtract points with a negative manual adjustment", async (t) =>
   assert.equal(manualCorrection.status, "approved");
 });
 
+test("repeatable quests reopen until completion limit and can be cancelled", async (t) => {
+  const { baseUrl, dataFilePath } = await createTestServer(t);
+
+  const adminSetup = await requestJson(baseUrl, "/api/admin/setup", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      username: "admin",
+      password: "secret123"
+    })
+  });
+
+  const firstUser = await requestJson(baseUrl, "/api/users", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: adminSetup.cookie
+    },
+    body: JSON.stringify({
+      name: "Quest Mentor One",
+      password: "temp-pass-1"
+    })
+  });
+
+  const secondUser = await requestJson(baseUrl, "/api/users", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: adminSetup.cookie
+    },
+    body: JSON.stringify({
+      name: "Quest Mentor Two",
+      password: "temp-pass-2"
+    })
+  });
+
+  setUserPasswordById(firstUser.body.id, "ready-pass-1", { mustChangePassword: false });
+  setUserPasswordById(secondUser.body.id, "ready-pass-2", { mustChangePassword: false });
+
+  const firstLogin = await requestJson(baseUrl, "/api/auth/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      username: "Quest Mentor One",
+      password: "ready-pass-1"
+    })
+  });
+
+  const secondLogin = await requestJson(baseUrl, "/api/auth/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      username: "Quest Mentor Two",
+      password: "ready-pass-2"
+    })
+  });
+
+  const createQuest = await requestJson(baseUrl, "/api/quests", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: adminSetup.cookie
+    },
+    body: JSON.stringify({
+      title: "Repeatable Quest",
+      rewardPoints: 7,
+      requiredPlayers: 1,
+      completionLimit: 2,
+      steps: ["Naredi stvar"]
+    })
+  });
+
+  assert.equal(createQuest.response.status, 201);
+  assert.equal(createQuest.body.completionLimit, 2);
+
+  const firstJoin = await requestJson(baseUrl, "/api/quest-joins", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: firstLogin.cookie
+    },
+    body: JSON.stringify({
+      questId: createQuest.body.id
+    })
+  });
+
+  assert.equal(firstJoin.response.status, 200);
+
+  const firstSubmit = await requestJson(baseUrl, "/api/quest-requests", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: firstLogin.cookie
+    },
+    body: JSON.stringify({
+      questId: createQuest.body.id,
+      completedSteps: ["Naredi stvar"]
+    })
+  });
+
+  assert.equal(firstSubmit.response.status, 201);
+
+  const firstApprove = await requestJson(baseUrl, `/api/requests/${firstSubmit.body.id}/approve`, {
+    method: "POST",
+    headers: {
+      Cookie: adminSetup.cookie
+    }
+  });
+
+  assert.equal(firstApprove.response.status, 200);
+
+  const questsAfterFirstApproval = await requestJson(baseUrl, "/api/me/quests", {
+    headers: {
+      Cookie: secondLogin.cookie
+    }
+  });
+
+  assert.equal(questsAfterFirstApproval.response.status, 200);
+  assert.equal(questsAfterFirstApproval.body[0].completedCount, 1);
+  assert.equal(questsAfterFirstApproval.body[0].completionLimit, 2);
+  assert.equal(questsAfterFirstApproval.body[0].participantCount, 0);
+
+  const secondJoin = await requestJson(baseUrl, "/api/quest-joins", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: secondLogin.cookie
+    },
+    body: JSON.stringify({
+      questId: createQuest.body.id
+    })
+  });
+
+  assert.equal(secondJoin.response.status, 200);
+
+  const cancelQuest = await requestJson(baseUrl, `/api/quests/${createQuest.body.id}/cancel`, {
+    method: "POST",
+    headers: {
+      Cookie: adminSetup.cookie
+    }
+  });
+
+  assert.equal(cancelQuest.response.status, 200);
+  assert.equal(cancelQuest.body.active, false);
+
+  const storedData = JSON.parse(fs.readFileSync(dataFilePath, "utf8"));
+  const storedQuest = storedData.quests.find((quest) => quest.id === createQuest.body.id);
+
+  assert.equal(storedQuest.completedCount, 1);
+  assert.equal(storedQuest.active, false);
+  assert.ok(storedQuest.cancelledAt);
+});
+
 test("admin cannot create duplicate usernames", async (t) => {
   const { baseUrl } = await createTestServer(t);
 
