@@ -10,6 +10,13 @@ services:
 
     environment:
       NODE_ENV: development
+      # Discord integration is disabled unless the token and channel are set.
+      # DISCORD_BOT_TOKEN: your-bot-token
+      # DISCORD_MENTOR_CHANNEL_ID: "123456789012345678"
+      # DISCORD_PUBLIC_BASE_URL: http://localhost:3000
+      # DISCORD_TIMEZONE: Europe/Ljubljana
+      # DISCORD_REMINDER_HOUR: "9"
+      # DISCORD_MONTHLY_HOUR: "9"
 
     develop:
       watch:

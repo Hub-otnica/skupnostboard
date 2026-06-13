@@ -62,11 +62,17 @@ const {
   getIncomingBadgeShareRequests,
   getApprovedRequestsByUserCode,
   getPendingRequests,
+  getAdminUsers,
   recordMeeting,
   getSortedUsers,
   getUserByCode,
   processRequest
 } = require("../services/scoreboardService");
+const {
+  notifyBadgeShareRequestCreated,
+  notifyQuestCreated,
+  notifyQuestJoined
+} = require("../services/discordService");
 
 const router = express.Router();
 const badgesUploadDir = path.join(__dirname, "..", "..", "public", "uploads", "badges");
@@ -129,6 +135,16 @@ function requireUserReady(req, _res, next) {
   }
 
   next();
+}
+
+function runAfterResponse(res, task) {
+  res.once("finish", () => {
+    Promise.resolve()
+      .then(task)
+      .catch((error) => {
+        console.error("Post-response task failed:", error.message);
+      });
+  });
 }
 
 const storage = multer.diskStorage({
@@ -343,6 +359,10 @@ router.get("/admin/direct-messages", requireAdminAuth, (_req, res) => {
   res.json(getAdminDirectMessageThreads());
 });
 
+router.get("/admin/users", requireAdminAuth, (_req, res) => {
+  res.json(getAdminUsers());
+});
+
 router.get("/admin/direct-messages/:code", requireAdminAuth, (req, res) => {
   res.json(getAdminDirectMessagesByUserCode(req.params.code));
 });
@@ -393,6 +413,7 @@ router.put("/users/:code", requireAdminAuth, (req, res) => {
 
 router.post("/quests", requireAdminAuth, (req, res) => {
   const quest = createQuest(req.body);
+  runAfterResponse(res, () => notifyQuestCreated(quest));
   res.status(201).json(quest);
 });
 
@@ -447,6 +468,7 @@ router.post("/badge-share-requests", requireUserAuth, requireUserReady, (req, re
     targetCode: req.body.targetCode,
     badgeId: req.body.badgeId
   });
+  runAfterResponse(res, () => notifyBadgeShareRequestCreated(request));
   res.status(201).json(request);
 });
 
@@ -464,10 +486,12 @@ router.post("/forum-messages", requireUserAuth, requireUserReady, (req, res) => 
 });
 
 router.post("/quest-joins", requireUserAuth, requireUserReady, (req, res) => {
+  const previousQuest = getAdminQuests().find((quest) => quest.id === Number(req.body.questId));
   const quest = joinQuest({
     code: req.authenticatedUser.code,
     questId: req.body.questId
   });
+  runAfterResponse(res, () => notifyQuestJoined(quest, previousQuest, req.authenticatedUser.code));
   res.json(quest);
 });
 

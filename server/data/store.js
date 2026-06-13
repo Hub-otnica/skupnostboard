@@ -15,14 +15,16 @@ const defaultData = {
       name: "Alex",
       code: "ALEX01",
       points: 20,
-      attendance: 0
+      attendance: 0,
+      discordUserId: ""
     },
     {
       id: 2,
       name: "Sam",
       code: "SAM02",
       points: 12,
-      attendance: 0
+      attendance: 0,
+      discordUserId: ""
     }
   ],
   requests: [],
@@ -33,6 +35,7 @@ const defaultData = {
   badgeTransfers: [],
   directMessages: [],
   forumMessages: [],
+  discordNotifications: [],
   userAuth: [],
   adminAuth: {
     username: "admin",
@@ -97,6 +100,10 @@ function readData() {
     data.forumMessages = [];
   }
 
+  if (!Array.isArray(data.discordNotifications)) {
+    data.discordNotifications = [];
+  }
+
   if (!Array.isArray(data.userAuth)) {
     data.userAuth = [];
   }
@@ -116,6 +123,7 @@ function readData() {
     ...user,
     points: Number.isInteger(user.points) ? user.points : 0,
     attendance: Number.isInteger(user.attendance) ? user.attendance : 0,
+    discordUserId: String(user.discordUserId || "").trim(),
     userBadges: Array.isArray(user.userBadges) && user.userBadges.length > 0
       ? user.userBadges
         .map((entry) => ({
@@ -237,6 +245,15 @@ function readData() {
       mustChangePassword: entry.mustChangePassword !== false
     }))
     .filter((entry) => Number.isInteger(entry.userId));
+
+  data.discordNotifications = data.discordNotifications
+    .map((notification) => ({
+      key: String(notification.key || "").trim(),
+      type: String(notification.type || "").trim(),
+      target: String(notification.target || "").trim(),
+      sentAt: String(notification.sentAt || "").trim()
+    }))
+    .filter((notification) => notification.key && notification.sentAt);
 
   return data;
 }

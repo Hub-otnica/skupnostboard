@@ -175,6 +175,7 @@ function populateEditUserForm(user) {
   document.getElementById("edit-user-name").value = user.name || "";
   document.getElementById("edit-user-password").value = "";
   document.getElementById("edit-user-confirm-password").value = "";
+  document.getElementById("edit-user-discord-id").value = user.discordUserId || "";
 }
 
 function createBadgeLevelField(value = "", levelNumber = 1, removeClassName = "badge-level-remove") {
@@ -632,7 +633,7 @@ function renderMeetingMembers(users) {
 async function loadMeetingMembers() {
   try {
     const previousUserCode = editUserSelect.value;
-    const users = await adminApiFetch("/api/users");
+    const users = await adminApiFetch("/api/admin/users");
     renderMeetingMembers(users);
     const selectedUser = users.find((user) => user.code === previousUserCode) || users[0];
 
@@ -799,7 +800,8 @@ createUserForm.addEventListener("submit", async (event) => {
 
   const payload = {
     name: String(formData.get("name") || "").trim(),
-    password
+    password,
+    discordUserId: String(formData.get("discordUserId") || "").trim()
   };
 
   try {
@@ -823,6 +825,7 @@ editUserForm.addEventListener("submit", async (event) => {
   const formData = new FormData(editUserForm);
   const currentCode = String(formData.get("currentCode") || "").trim();
   const name = String(formData.get("name") || "").trim();
+  const discordUserId = String(formData.get("discordUserId") || "").trim();
   const password = String(formData.get("password") || "");
   const confirmPassword = String(formData.get("confirmPassword") || "");
 
@@ -836,7 +839,7 @@ editUserForm.addEventListener("submit", async (event) => {
   try {
     const user = await adminApiFetch(`/api/users/${encodeURIComponent(currentCode)}`, {
       method: "PUT",
-      body: JSON.stringify({ name, password })
+      body: JSON.stringify({ name, password, discordUserId })
     });
 
     setMessage(editUserMessage, `Podatki mentorice/mentorja ${user.name} so bili posodobljeni.`, "success");

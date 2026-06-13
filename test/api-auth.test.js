@@ -4,6 +4,54 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { setUserPasswordById } = require("../server/services/userAuthService");
+const {
+  formatMonthlyLeadersMessage,
+  postDueEventReminders,
+  postMonthlyLeaders,
+  setDiscordSenderForTests
+} = require("../server/services/discordService");
+
+function withDiscordEnv(t, sentMessages) {
+  const previousEnv = {
+    DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
+    DISCORD_MENTOR_CHANNEL_ID: process.env.DISCORD_MENTOR_CHANNEL_ID,
+    DISCORD_PUBLIC_BASE_URL: process.env.DISCORD_PUBLIC_BASE_URL,
+    DISCORD_TIMEZONE: process.env.DISCORD_TIMEZONE,
+    DISCORD_REMINDER_HOUR: process.env.DISCORD_REMINDER_HOUR,
+    DISCORD_MONTHLY_HOUR: process.env.DISCORD_MONTHLY_HOUR
+  };
+
+  process.env.DISCORD_BOT_TOKEN = "test-token";
+  process.env.DISCORD_MENTOR_CHANNEL_ID = "123456789012345678";
+  process.env.DISCORD_PUBLIC_BASE_URL = "https://skorbord.test";
+  process.env.DISCORD_TIMEZONE = "Europe/Ljubljana";
+  process.env.DISCORD_REMINDER_HOUR = "9";
+  process.env.DISCORD_MONTHLY_HOUR = "9";
+
+  setDiscordSenderForTests({
+    async sendChannelMessage(channelId, content) {
+      sentMessages.push({ type: "channel", channelId, content });
+    },
+    async sendDirectMessage(userId, content) {
+      sentMessages.push({ type: "dm", userId, content });
+    }
+  });
+
+  t.after(() => {
+    Object.entries(previousEnv).forEach(([key, value]) => {
+      if (typeof value === "undefined") {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    });
+    setDiscordSenderForTests(null);
+  });
+}
+
+function flushAsyncNotifications() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
 
 async function createTestServer(t, initialData = null) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "skorbord-test-"));
@@ -445,6 +493,286 @@ test("repeatable quests reopen until completion limit and can be cancelled", asy
   assert.ok(storedQuest.cancelledAt);
 });
 
+test("Discord notifications fire for quests, badge requests, and group quest joins", async (t) => {
+  const sentMessages = [];
+  withDiscordEnv(t, sentMessages);
+
+  const { baseUrl } = await createTestServer(t, {
+    users: [
+      {
+        id: 1,
+        name: "Alice",
+        code: "ALICE",
+        points: 0,
+        attendance: 0,
+        discordUserId: "111111111111111111",
+        userBadges: [],
+        badgeIds: []
+      },
+      {
+        id: 2,
+        name: "Bob",
+        code: "BOB",
+        points: 0,
+        attendance: 0,
+        discordUserId: "222222222222222222",
+        userBadges: [
+          {
+            badgeId: 1,
+            level: 1
+          }
+        ],
+        badgeIds: [1]
+      }
+    ],
+    requests: [],
+    meetings: [],
+    quests: [],
+    events: [],
+    badges: [
+      {
+        id: 1,
+        name: "Pomocnik",
+        requirements: "Pomagaj skupnosti",
+        description: "Osnovna značka",
+        levelDescriptions: ["Osnovna značka"],
+        imagePath: "/uploads/badges/test.png",
+        createdAt: new Date().toISOString()
+      }
+    ],
+    badgeTransfers: [],
+    directMessages: [],
+    forumMessages: [],
+    discordNotifications: [],
+    userAuth: [],
+    adminAuth: {
+      username: "admin",
+      passwordHash: "",
+      passwordSalt: "",
+      passwordUpdatedAt: ""
+    }
+  });
+
+  setUserPasswordById(1, "alice-pass");
+  setUserPasswordById(2, "bob-pass");
+
+  const adminSetup = await requestJson(baseUrl, "/api/admin/setup", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      username: "admin",
+      password: "secret123"
+    })
+  });
+  const aliceLogin = await requestJson(baseUrl, "/api/auth/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      username: "Alice",
+      password: "alice-pass"
+    })
+  });
+  const bobLogin = await requestJson(baseUrl, "/api/auth/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      username: "Bob",
+      password: "bob-pass"
+    })
+  });
+
+  const createdQuest = await requestJson(baseUrl, "/api/quests", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: adminSetup.cookie
+    },
+    body: JSON.stringify({
+      title: "Skupinski Quest",
+      rewardPoints: 5,
+      requiredPlayers: 2,
+      completionLimit: 1,
+      steps: ["Naredi korak"]
+    })
+  });
+
+  assert.equal(createdQuest.response.status, 201);
+  await flushAsyncNotifications();
+  assert.equal(sentMessages.length, 1);
+  assert.equal(sentMessages[0].type, "channel");
+  assert.match(sentMessages[0].content, /Nov quest: Skupinski Quest/);
+
+  const aliceJoin = await requestJson(baseUrl, "/api/quest-joins", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: aliceLogin.cookie
+    },
+    body: JSON.stringify({
+      questId: createdQuest.body.id
+    })
+  });
+
+  assert.equal(aliceJoin.response.status, 200);
+  await flushAsyncNotifications();
+  assert.equal(sentMessages.length, 1);
+
+  const bobJoin = await requestJson(baseUrl, "/api/quest-joins", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: bobLogin.cookie
+    },
+    body: JSON.stringify({
+      questId: createdQuest.body.id
+    })
+  });
+
+  assert.equal(bobJoin.response.status, 200);
+  await flushAsyncNotifications();
+  assert.equal(sentMessages.length, 2);
+  assert.equal(sentMessages[1].type, "dm");
+  assert.equal(sentMessages[1].userId, "111111111111111111");
+  assert.match(sentMessages[1].content, /Bob se je pridružil\/a/);
+
+  const duplicateBobJoin = await requestJson(baseUrl, "/api/quest-joins", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: bobLogin.cookie
+    },
+    body: JSON.stringify({
+      questId: createdQuest.body.id
+    })
+  });
+
+  assert.equal(duplicateBobJoin.response.status, 200);
+  await flushAsyncNotifications();
+  assert.equal(sentMessages.length, 2);
+
+  const badgeRequest = await requestJson(baseUrl, "/api/badge-share-requests", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: aliceLogin.cookie
+    },
+    body: JSON.stringify({
+      targetCode: "BOB",
+      badgeId: 1
+    })
+  });
+
+  assert.equal(badgeRequest.response.status, 201);
+  await flushAsyncNotifications();
+  assert.equal(sentMessages.length, 3);
+  assert.equal(sentMessages[2].type, "dm");
+  assert.equal(sentMessages[2].userId, "222222222222222222");
+  assert.match(sentMessages[2].content, /Alice prosi za značko "Pomocnik"/);
+});
+
+test("scheduled Discord event reminders and monthly leaders are deduped", async (t) => {
+  const sentMessages = [];
+  withDiscordEnv(t, sentMessages);
+
+  const { dataFilePath } = await createTestServer(t, {
+    users: [
+      {
+        id: 1,
+        name: "Ana",
+        code: "ANA",
+        points: 10,
+        attendance: 1,
+        userBadges: [{ badgeId: 1, level: 1 }],
+        badgeIds: [1]
+      },
+      {
+        id: 2,
+        name: "Bojan",
+        code: "BOJAN",
+        points: 20,
+        attendance: 3,
+        userBadges: [],
+        badgeIds: []
+      }
+    ],
+    requests: [
+      {
+        id: 1,
+        type: "badge-share",
+        status: "approved",
+        targetUserCode: "ANA"
+      }
+    ],
+    meetings: [],
+    quests: [],
+    events: [
+      {
+        id: 1,
+        title: "Skupni cilj",
+        date: "2026-06-15",
+        conditionType: "points-total",
+        targetValue: 50,
+        badgeId: null,
+        rewardPoints: 5,
+        penaltyPoints: 1,
+        status: "pending",
+        currentValue: null,
+        success: null,
+        createdAt: "2026-06-01T00:00:00.000Z"
+      }
+    ],
+    badges: [
+      {
+        id: 1,
+        name: "Pomocnik",
+        requirements: "Pomagaj skupnosti",
+        description: "Osnovna značka",
+        levelDescriptions: ["Osnovna značka"],
+        imagePath: "/uploads/badges/test.png",
+        createdAt: "2026-06-01T00:00:00.000Z"
+      }
+    ],
+    badgeTransfers: [],
+    directMessages: [],
+    forumMessages: [],
+    discordNotifications: [],
+    userAuth: [],
+    adminAuth: {
+      username: "admin",
+      passwordHash: "",
+      passwordSalt: "",
+      passwordUpdatedAt: ""
+    }
+  });
+
+  await postDueEventReminders(new Date("2026-06-12T08:00:00.000Z"));
+  await postDueEventReminders(new Date("2026-06-12T10:00:00.000Z"));
+
+  assert.equal(sentMessages.length, 1);
+  assert.match(sentMessages[0].content, /Dogodek se približuje: Skupni cilj/);
+
+  await postMonthlyLeaders(new Date("2026-06-01T08:00:00.000Z"));
+  await postMonthlyLeaders(new Date("2026-06-01T10:00:00.000Z"));
+
+  assert.equal(sentMessages.length, 2);
+  assert.match(sentMessages[1].content, /Mesečna lestvica/);
+  assert.match(sentMessages[1].content, /Točke:\n1\. Bojan - 20/);
+
+  const storedData = JSON.parse(fs.readFileSync(dataFilePath, "utf8"));
+  const notificationKeys = storedData.discordNotifications.map((notification) => notification.key);
+
+  assert.deepEqual(notificationKeys.sort(), [
+    "event-reminder:2026-06-12:1",
+    "monthly-leaders:2026-06"
+  ]);
+});
+
 test("admin cannot create duplicate usernames", async (t) => {
   const { baseUrl } = await createTestServer(t);
 
@@ -489,6 +817,135 @@ test("admin cannot create duplicate usernames", async (t) => {
 
   assert.equal(duplicateUser.response.status, 409);
   assert.match(duplicateUser.body.error, /ime je že v uporabi/i);
+});
+
+test("admin can manage Discord IDs without exposing them publicly", async (t) => {
+  const { baseUrl } = await createTestServer(t);
+
+  const adminSetup = await requestJson(baseUrl, "/api/admin/setup", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      username: "admin",
+      password: "secret123"
+    })
+  });
+
+  const invalidDiscordUser = await requestJson(baseUrl, "/api/users", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: adminSetup.cookie
+    },
+    body: JSON.stringify({
+      name: "Invalid Discord",
+      password: "temp-pass-1",
+      discordUserId: "not-a-snowflake"
+    })
+  });
+
+  assert.equal(invalidDiscordUser.response.status, 400);
+
+  const createdUser = await requestJson(baseUrl, "/api/users", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: adminSetup.cookie
+    },
+    body: JSON.stringify({
+      name: "Discord Mentor",
+      password: "temp-pass-1",
+      discordUserId: "123456789012345678"
+    })
+  });
+
+  assert.equal(createdUser.response.status, 201);
+  assert.equal(createdUser.body.discordUserId, "123456789012345678");
+
+  const adminUsers = await requestJson(baseUrl, "/api/admin/users", {
+    headers: {
+      Cookie: adminSetup.cookie
+    }
+  });
+
+  assert.equal(adminUsers.response.status, 200);
+  assert.equal(
+    adminUsers.body.find((user) => user.code === createdUser.body.code).discordUserId,
+    "123456789012345678"
+  );
+
+  const publicUsers = await requestJson(baseUrl, "/api/users");
+  const publicUser = publicUsers.body.find((user) => user.code === createdUser.body.code);
+
+  assert.equal(publicUsers.response.status, 200);
+  assert.equal(Object.prototype.hasOwnProperty.call(publicUser, "discordUserId"), false);
+
+  const publicProfile = await requestJson(baseUrl, `/api/users/${createdUser.body.code}`);
+
+  assert.equal(publicProfile.response.status, 200);
+  assert.equal(Object.prototype.hasOwnProperty.call(publicProfile.body, "discordUserId"), false);
+
+  const updatedUser = await requestJson(baseUrl, `/api/users/${createdUser.body.code}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: adminSetup.cookie
+    },
+    body: JSON.stringify({
+      name: "Discord Mentor",
+      discordUserId: "223456789012345678"
+    })
+  });
+
+  assert.equal(updatedUser.response.status, 200);
+  assert.equal(updatedUser.body.discordUserId, "223456789012345678");
+});
+
+test("Discord messages format monthly leaders by scoreboard categories", () => {
+  const message = formatMonthlyLeadersMessage({
+    users: [
+      {
+        name: "Ana",
+        code: "ANA",
+        points: 10,
+        attendance: 1,
+        userBadges: [{ badgeId: 1, level: 1 }]
+      },
+      {
+        name: "Bojan",
+        code: "BOJAN",
+        points: 20,
+        attendance: 3,
+        userBadges: []
+      },
+      {
+        name: "Cene",
+        code: "CENE",
+        points: 15,
+        attendance: 2,
+        userBadges: [{ badgeId: 1, level: 1 }, { badgeId: 2, level: 1 }]
+      }
+    ],
+    requests: [
+      {
+        type: "badge-share",
+        status: "approved",
+        targetUserCode: "ANA"
+      },
+      {
+        type: "badge-share",
+        status: "approved",
+        targetUserCode: "ANA"
+      }
+    ]
+  }, new Date("2026-06-01T00:00:00.000Z"));
+
+  assert.match(message, /Točke:\n1\. Bojan - 20\n2\. Cene - 15\n3\. Ana - 10/);
+  assert.match(message, /Sestanki:\n1\. Bojan - 3\n2\. Cene - 2\n3\. Ana - 1/);
+  assert.match(message, /Značke:\n1\. Cene - 2\n2\. Ana - 1\n3\. Bojan - 0/);
+  assert.match(message, /P2P:\n1\. Ana - 2\n2\. Bojan - 0\n3\. Cene - 0/);
 });
 
 test("admin and mentor can exchange direct messages", async (t) => {

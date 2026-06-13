@@ -14,6 +14,7 @@ Simple scoreboard web app built with Node.js, Express, vanilla HTML/CSS/JavaScri
 - Admin dashboard for approving or rejecting requests
 - Admin tools for creating users and manually adjusting points by user name
 - Meeting attendance tracking with admin-recorded meeting reports
+- Optional Discord bot notifications for quests, events, badge-share requests, group quest joins, and monthly leaders
 - Basic validation for names, codes, and point values
 
 ## Project structure
@@ -42,6 +43,7 @@ skorbord/
 │   │   └── api.js
 │   └── services/
 │       ├── adminAuthService.js
+│       ├── discordService.js
 │       ├── scoreboardService.js
 │       └── userAuthService.js
 └── README.md
@@ -89,9 +91,35 @@ Example:
 ADMIN_USERNAME=admin ADMIN_PASSWORD=change-me npm start
 ```
 
+## Discord integration
+
+Discord notifications are disabled unless both `DISCORD_BOT_TOKEN` and `DISCORD_MENTOR_CHANNEL_ID` are configured.
+
+Optional environment variables:
+
+- `DISCORD_BOT_TOKEN` - bot token for a bot that is already invited to the mentors' Discord server
+- `DISCORD_MENTOR_CHANNEL_ID` - channel where public mentor updates are posted
+- `DISCORD_PUBLIC_BASE_URL` - public app URL used in Discord links, for example `https://skorbord.example.com`
+- `DISCORD_TIMEZONE` - timezone for scheduled posts, default `Europe/Ljubljana`
+- `DISCORD_REMINDER_HOUR` - local hour for daily event reminders, default `9`
+- `DISCORD_MONTHLY_HOUR` - local hour for monthly leader posts, default `9`
+
+To enable DMs, add each mentor's Discord user ID in the admin mentor create/edit form. In Discord, enable Developer Mode, right-click the user or channel, and choose **Copy ID**.
+
+The bot posts:
+
+- new quests immediately in the mentor channel
+- pending events once per day when their check date is within the next 7 days
+- badge-share requests by DM to the badge holder
+- group quest joins by DM to existing participants
+- monthly top 3 leaders for Točke, Sestanki, Značke, and P2P on the first day of each month
+
+Discord send failures are logged on the server and do not block the Skorbord action.
+
 ## API endpoints
 
 - `GET /api/users` - get all users sorted by points
+- `GET /api/admin/users` - get all users including admin-only Discord IDs
 - `GET /api/users/:code` - get a single user by code
 - `GET /api/users/:code/approved-requests` - get a user plus their approved request history
 - `GET /api/quests` - get all active quests
@@ -103,7 +131,7 @@ ADMIN_USERNAME=admin ADMIN_PASSWORD=change-me npm start
 - `GET /api/me/quests` - get quests for the currently logged-in mentor
 - `GET /api/me/badge-share-options` - get badge-sharing options for the currently logged-in mentor
 - `GET /api/me/incoming-badge-requests` - get incoming badge-share requests for the currently logged-in mentor
-- `POST /api/users` - create a user with a unique public `name` and initial password
+- `POST /api/users` - create a user with a unique public `name`, initial password, and optional `discordUserId`
 - `POST /api/quests` - create a quest with `{ "title": "Tedenski izziv", "rewardPoints": 5, "steps": ["Korak 1"] }`
 - `POST /api/requests` - submit a point request for the logged-in mentor with `points` and optional `reason`
 - `POST /api/quest-requests` - submit a completed quest for the logged-in mentor with `{ "questId": 1, "completedSteps": ["Korak 1"] }`
@@ -129,6 +157,7 @@ Admin-only endpoints require `Authorization: Bearer <token>`.
 - Manual admin point assignment matches user names case-insensitively, but names must still be unique for that action.
 - Manual admin point assignment can include an optional reason and is saved into the approved request log.
 - Meeting attendance starts at `0` for new and existing users and increases when the admin records a meeting.
+- Discord notification dedupe state is stored in `discordNotifications` in the same JSON data file.
 - Questi imajo od 1 do 10 korakov, uporabnik pa lahko isti quest odda le enkrat, če je že v čakanju ali odobren.
 - Points must be positive whole numbers.
 

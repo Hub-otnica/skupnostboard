@@ -2,6 +2,7 @@ const express = require("express");
 const path = require("path");
 const { router: apiRouter } = require("./routes/api");
 const { ensureDataFile } = require("./data/store");
+const { startDiscordScheduler } = require("./services/discordService");
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "127.0.0.1";
@@ -59,9 +60,13 @@ function createApp() {
 function startServer(port = PORT, host = HOST) {
   const app = createApp();
 
-  return app.listen(port, host, () => {
+  const server = app.listen(port, host, () => {
     console.log(`Scoreboard app running at http://${host}:${port}`);
   });
+
+  startDiscordScheduler();
+
+  return server;
 }
 
 if (require.main === module) {

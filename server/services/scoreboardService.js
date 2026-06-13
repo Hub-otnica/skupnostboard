@@ -97,6 +97,20 @@ function validateNonNegativeInteger(value, fieldName) {
   return normalizedValue;
 }
 
+function validateDiscordUserId(discordUserId) {
+  const value = String(discordUserId || "").trim();
+
+  if (!value) {
+    return "";
+  }
+
+  if (!/^\d{17,20}$/.test(value)) {
+    throw createError(400, "Discord user ID mora biti 17 do 20 mestna številka.");
+  }
+
+  return value;
+}
+
 function validateQuestSteps(steps) {
   if (!Array.isArray(steps)) {
     throw createError(400, "Koraki questa morajo biti podani v seznamu.");
@@ -585,7 +599,24 @@ function getSortedUsers() {
       }
 
       return a.name.localeCompare(b.name);
-    });
+    })
+    .map((user) => stripPrivateUserFields(user));
+}
+
+function getAdminUsers() {
+  const data = readDataWithProcessedEvents();
+
+  return [...data.users].sort((a, b) => {
+    if (b.points !== a.points) {
+      return b.points - a.points;
+    }
+
+    if (b.attendance !== a.attendance) {
+      return b.attendance - a.attendance;
+    }
+
+    return a.name.localeCompare(b.name);
+  });
 }
 
 function getForumMessages() {
@@ -703,7 +734,12 @@ function getUserRecordByCode(code, data = readData()) {
 function getUserByCode(code) {
   const data = readDataWithProcessedEvents();
   const user = getUserRecordByCode(code, data);
-  return decorateUserWithBadges(user, data);
+  return stripPrivateUserFields(decorateUserWithBadges(user, data));
+}
+
+function stripPrivateUserFields(user) {
+  const { discordUserId, ...publicUser } = user;
+  return publicUser;
 }
 
 function decorateUserWithBadges(user, data) {
@@ -831,6 +867,7 @@ function createUser(payload) {
   const data = readData();
   const name = String(payload.name || "").trim();
   const normalizedName = normalizeName(name);
+  const discordUserId = validateDiscordUserId(payload.discordUserId);
 
   if (!name) {
     throw createError(400, "Ime je obvezno.");
@@ -848,6 +885,7 @@ function createUser(payload) {
     code,
     points: 0,
     attendance: 0,
+    discordUserId,
     userBadges: [],
     badgeIds: []
   };
@@ -981,6 +1019,8 @@ function updateUserByCode(code, payload) {
   };
   const name = String(payload.name || "").trim();
   const normalizedName = normalizeName(name);
+  const hasDiscordUserId = Object.prototype.hasOwnProperty.call(payload, "discordUserId");
+  const discordUserId = hasDiscordUserId ? validateDiscordUserId(payload.discordUserId) : user.discordUserId;
 
   if (!name) {
     throw createError(400, "Ime je obvezno.");
@@ -991,6 +1031,7 @@ function updateUserByCode(code, payload) {
   }
 
   user.name = name;
+  user.discordUserId = discordUserId;
 
   syncUserReferences(data, previousUser, user);
   writeData(data);
@@ -1821,7 +1862,7 @@ function getApprovedRequestsByUserCode(code) {
     .sort((a, b) => new Date(b.processedAt || b.createdAt) - new Date(a.processedAt || a.createdAt));
 
   return {
-    user: decorateUserWithBadges(user, data),
+    user: stripPrivateUserFields(decorateUserWithBadges(user, data)),
     approvedRequests
   };
 }
@@ -1973,6 +2014,7 @@ module.exports = {
   getIncomingBadgeShareRequests,
   getApprovedRequestsByUserCode,
   getPendingRequests,
+  getAdminUsers,
   recordMeeting,
   getSortedUsers,
   getUserByCode,
