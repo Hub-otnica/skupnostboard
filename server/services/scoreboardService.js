@@ -1418,6 +1418,42 @@ function updateBadge(badgeId, payload) {
   return badge;
 }
 
+function deleteBadge(badgeId, confirmationName) {
+  const data = readData();
+  const badge = getBadgeRecordById(badgeId, data);
+  const normalizedConfirmationName = String(confirmationName || "").trim();
+
+  if (normalizedConfirmationName !== badge.name) {
+    throw createError(400, "Za izbris moraš vpisati točno ime značke.");
+  }
+
+  const removedUserBadgeCount = data.users.reduce((count, user) => {
+    const previousCount = Array.isArray(user.userBadges) ? user.userBadges.length : 0;
+    user.userBadges = (Array.isArray(user.userBadges) ? user.userBadges : [])
+      .filter((entry) => entry.badgeId !== badge.id);
+    user.badgeIds = user.userBadges.map((entry) => entry.badgeId);
+    return count + previousCount - user.userBadges.length;
+  }, 0);
+  const previousRequestCount = data.requests.length;
+  const previousTransferCount = data.badgeTransfers.length;
+  const previousEventCount = data.events.length;
+
+  data.badges = data.badges.filter((entry) => entry.id !== badge.id);
+  data.requests = data.requests.filter((request) => request.type !== "badge-share" || request.badgeId !== badge.id);
+  data.badgeTransfers = data.badgeTransfers.filter((transfer) => transfer.badgeId !== badge.id);
+  data.events = data.events.filter((event) => event.conditionType !== "badge-count" || event.badgeId !== badge.id);
+
+  writeData(data);
+
+  return {
+    badge,
+    removedUserBadgeCount,
+    removedRequestCount: previousRequestCount - data.requests.length,
+    removedTransferCount: previousTransferCount - data.badgeTransfers.length,
+    removedEventCount: previousEventCount - data.events.length
+  };
+}
+
 function getBadges() {
   const data = readData();
 
@@ -1989,6 +2025,7 @@ module.exports = {
   createDirectMessageFromUser,
   createBadge,
   updateBadge,
+  deleteBadge,
   createBadgeShareRequest,
   createForumMessage,
   createQuest,

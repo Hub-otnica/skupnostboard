@@ -20,6 +20,7 @@ const questForm = document.getElementById("quest-form");
 const eventForm = document.getElementById("event-form");
 const badgeForm = document.getElementById("badge-form");
 const editBadgeForm = document.getElementById("edit-badge-form");
+const deleteBadgeForm = document.getElementById("delete-badge-form");
 const assignBadgeForm = document.getElementById("assign-badge-form");
 const createUserMessage = document.getElementById("create-user-message");
 const editUserMessage = document.getElementById("edit-user-message");
@@ -29,6 +30,7 @@ const questMessage = document.getElementById("quest-message");
 const eventMessage = document.getElementById("event-message");
 const badgeMessage = document.getElementById("badge-message");
 const editBadgeMessage = document.getElementById("edit-badge-message");
+const deleteBadgeMessage = document.getElementById("delete-badge-message");
 const assignBadgeMessage = document.getElementById("assign-badge-message");
 const pendingRequestsContainer = document.getElementById("pending-requests");
 const refreshButton = document.getElementById("refresh-requests");
@@ -220,8 +222,10 @@ function resetBadgeForm() {
 
 function resetEditBadgeForm() {
   editBadgeForm.reset();
+  deleteBadgeForm.reset();
   editBadgeLevelDescriptionsContainer.innerHTML = "";
   editBadgeSelect.value = "";
+  document.getElementById("delete-badge-confirmation").placeholder = "Ime značke";
   addBadgeLevelRow(editBadgeLevelDescriptionsContainer, addEditBadgeLevelButton, editBadgeMessage, "", "edit-badge-level-remove");
 }
 
@@ -235,6 +239,8 @@ function populateEditBadgeForm(badge) {
   document.getElementById("edit-badge-name").value = badge.name || "";
   document.getElementById("edit-badge-requirements").value = badge.requirements || "";
   document.getElementById("edit-badge-description").value = badge.description || "";
+  deleteBadgeForm.reset();
+  document.getElementById("delete-badge-confirmation").placeholder = badge.name || "Ime značke";
   editBadgeLevelDescriptionsContainer.innerHTML = "";
 
   (badge.levelDescriptions || [badge.description || ""])
@@ -1039,6 +1045,31 @@ editBadgeForm.addEventListener("submit", async (event) => {
     populateEditBadgeForm(badge);
   } catch (error) {
     setMessage(editBadgeMessage, error.message, "error");
+  }
+});
+
+deleteBadgeForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearMessage(deleteBadgeMessage);
+
+  const formData = new FormData(deleteBadgeForm);
+  const badgeId = Number(editBadgeSelect.value);
+  const confirmationName = String(formData.get("confirmationName") || "").trim();
+
+  try {
+    if (!badgeId) {
+      throw new Error("Izberi značko za izbris.");
+    }
+
+    const result = await adminApiFetch(`/api/badges/${badgeId}`, {
+      method: "DELETE",
+      body: JSON.stringify({ confirmationName })
+    });
+
+    setMessage(deleteBadgeMessage, `Značka "${result.badge.name}" je bila izbrisana.`, "success");
+    await Promise.all([loadBadges(), loadEvents()]);
+  } catch (error) {
+    setMessage(deleteBadgeMessage, error.message, "error");
   }
 });
 

@@ -1339,3 +1339,158 @@ test("only the badge holder can approve a badge-share request", async (t) => {
   assert.equal(authorizedAccept.response.status, 200);
   assert.equal(authorizedAccept.body.status, "approved");
 });
+
+test("admin deletes a badge only after typing its exact name", async (t) => {
+  const { baseUrl, dataFilePath } = await createTestServer(t, {
+    users: [
+      {
+        id: 1,
+        name: "Alice",
+        code: "ALICE",
+        points: 0,
+        attendance: 0,
+        userBadges: [
+          {
+            badgeId: 1,
+            level: 1
+          }
+        ],
+        badgeIds: [1]
+      },
+      {
+        id: 2,
+        name: "Bob",
+        code: "BOB",
+        points: 0,
+        attendance: 0,
+        userBadges: [],
+        badgeIds: []
+      }
+    ],
+    requests: [
+      {
+        id: 1,
+        type: "badge-share",
+        userCode: "BOB",
+        userName: "Bob",
+        targetUserCode: "ALICE",
+        targetUserName: "Alice",
+        badgeId: 1,
+        badgeName: "Test Badge",
+        badgeLevel: 1,
+        status: "pending",
+        createdAt: "2026-06-01T00:00:00.000Z"
+      }
+    ],
+    meetings: [],
+    quests: [],
+    events: [
+      {
+        id: 1,
+        title: "Badge Event",
+        date: "2026-06-20",
+        conditionType: "badge-count",
+        targetValue: 1,
+        badgeId: 1,
+        rewardPoints: 1,
+        penaltyPoints: 0,
+        status: "pending",
+        currentValue: null,
+        success: null,
+        createdAt: "2026-06-01T00:00:00.000Z"
+      }
+    ],
+    badges: [
+      {
+        id: 1,
+        name: "Test Badge",
+        requirements: "Test requirements",
+        description: "Test description",
+        levelDescriptions: ["Test description"],
+        imagePath: "/uploads/badges/test.png",
+        createdAt: "2026-06-01T00:00:00.000Z"
+      }
+    ],
+    badgeTransfers: [
+      {
+        id: 1,
+        badgeId: 1,
+        badgeName: "Test Badge",
+        fromUserCode: "",
+        fromUserName: "",
+        toUserCode: "ALICE",
+        toUserName: "Alice",
+        level: 1,
+        sourceType: "admin",
+        requestId: null,
+        rootUserCode: "ALICE",
+        rootUserName: "Alice",
+        lineageCodes: ["ALICE"],
+        lineageNames: ["Alice"],
+        depth: 0,
+        createdAt: "2026-06-01T00:00:00.000Z",
+        updatedAt: "2026-06-01T00:00:00.000Z"
+      }
+    ],
+    directMessages: [],
+    forumMessages: [],
+    userAuth: [],
+    adminAuth: {
+      username: "admin",
+      passwordHash: "",
+      passwordSalt: "",
+      passwordUpdatedAt: ""
+    }
+  });
+
+  const adminSetup = await requestJson(baseUrl, "/api/admin/setup", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      username: "admin",
+      password: "secret123"
+    })
+  });
+
+  const wrongConfirmation = await requestJson(baseUrl, "/api/badges/1", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: adminSetup.cookie
+    },
+    body: JSON.stringify({
+      confirmationName: "test badge"
+    })
+  });
+
+  assert.equal(wrongConfirmation.response.status, 400);
+
+  const deletedBadge = await requestJson(baseUrl, "/api/badges/1", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: adminSetup.cookie
+    },
+    body: JSON.stringify({
+      confirmationName: "Test Badge"
+    })
+  });
+
+  assert.equal(deletedBadge.response.status, 200);
+  assert.equal(deletedBadge.body.badge.name, "Test Badge");
+  assert.equal(deletedBadge.body.removedUserBadgeCount, 1);
+  assert.equal(deletedBadge.body.removedRequestCount, 1);
+  assert.equal(deletedBadge.body.removedTransferCount, 1);
+  assert.equal(deletedBadge.body.removedEventCount, 1);
+
+  const storedData = JSON.parse(fs.readFileSync(dataFilePath, "utf8"));
+
+  assert.equal(storedData.badges.length, 0);
+  assert.equal(storedData.users[0].userBadges.length, 0);
+  assert.equal(storedData.users[0].badgeIds.length, 0);
+  assert.equal(storedData.requests.length, 0);
+  assert.equal(storedData.badgeTransfers.length, 0);
+  assert.equal(storedData.events.length, 0);
+});

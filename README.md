@@ -133,6 +133,7 @@ Discord send failures are logged on the server and do not block the Skorbord act
 - `GET /api/me/incoming-badge-requests` - get incoming badge-share requests for the currently logged-in mentor
 - `POST /api/users` - create a user with a unique public `name`, initial password, and optional `discordUserId`
 - `POST /api/quests` - create a quest with `{ "title": "Tedenski izziv", "rewardPoints": 5, "steps": ["Korak 1"] }`
+- `DELETE /api/badges/:id` - delete a badge after confirming with `{ "confirmationName": "Exact badge name" }`
 - `POST /api/requests` - submit a point request for the logged-in mentor with `points` and optional `reason`
 - `POST /api/quest-requests` - submit a completed quest for the logged-in mentor with `{ "questId": 1, "completedSteps": ["Korak 1"] }`
 - `GET /api/requests/pending` - get pending requests

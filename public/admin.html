@@ -352,6 +352,15 @@
                 <button type="submit">Shrani spremembe</button>
               </form>
               <div id="edit-badge-message" class="message"></div>
+
+              <form id="delete-badge-form" style="margin-top: 1rem;">
+                <label>
+                  Za izbris vpiši točno ime značke
+                  <input name="confirmationName" id="delete-badge-confirmation" type="text" placeholder="Ime značke" required />
+                </label>
+                <button type="submit" class="danger">Izbriši značko</button>
+              </form>
+              <div id="delete-badge-message" class="message"></div>
             </div>
           </div>
 
@@ -436,6 +445,6 @@
     </main>
 
     <script src="/app.js"></script>
-    <script src="/pages/admin.js"></script>
+    <script src="/pages/admin.js?v=badge-delete-1"></script>
   </body>
 </html>

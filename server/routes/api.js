@@ -41,6 +41,7 @@ const {
   createForumMessage,
   createQuest,
   cancelQuest,
+  deleteBadge,
   createEvent,
   joinQuest,
   createQuestRequest,
@@ -455,6 +456,11 @@ router.put("/badges/:id", requireAdminAuth, upload.single("image"), (req, res) =
     imagePath: req.file ? `/uploads/badges/${req.file.filename}` : ""
   });
   res.json(badge);
+});
+
+router.delete("/badges/:id", requireAdminAuth, (req, res) => {
+  const result = deleteBadge(req.params.id, req.body.confirmationName);
+  res.json(result);
 });
 
 router.post("/badges/assign", requireAdminAuth, (req, res) => {
